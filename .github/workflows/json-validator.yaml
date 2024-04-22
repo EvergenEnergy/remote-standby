@@ -1,0 +1,27 @@
+---
+name: Validate JSON Files
+on:
+  push:
+    paths: ['**/*.json']
+  pull_request:
+    paths: ['**/*.json']
+jobs:
+  validate-json:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      - name: Install jq
+        run: sudo apt-get install jq
+      - name: Validate JSON
+        run: |-
+          for file in $(find . -type f -name '*.json' | grep -v -e '/venv/' -e '/.venv/'); do
+            jq . "$file" >/dev/null || { echo "Invalid JSON: $file"; exit 1; }
+            if [[ $(tail -c1 "$file" | wc -l) -eq 0 ]]; then
+              echo "Missing empty EOL: $file"
+              exit 1
+            fi
+          done
+      - name: Run Prettier
+        run: |
+          docker run --rm -v ${PWD}:/work tmknom/prettier --check ./**/*.json

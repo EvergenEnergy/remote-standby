@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/config"
 	"github.com/EvergenEnergy/remote-standby/standby"
+	"github.com/EvergenEnergy/remote-standby/worker"
 )
 
 var logLevels = map[string]slog.Level{
@@ -32,7 +33,8 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfgLevel}))
 
-	standbyWorker := standby.Init(logger, cfg)
+	standbyService := standby.NewService(logger, cfg)
+	standbyWorker := worker.NewWorker(logger, cfg, standbyService)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Interrupt)
 	defer cancel()

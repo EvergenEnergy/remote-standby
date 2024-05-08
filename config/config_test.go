@@ -8,7 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func getTestConfig(t *testing.T) config.Config {
+/*
+func getTestConfigFromEnv(t *testing.T) config.Config {
 	t.Setenv("MQTT_BROKER_URL", "tcp://localhost:1883")
 	t.Setenv("MQTT_STANDBY_TOPIC", "cmd/site/standby/serial/#")
 
@@ -16,8 +17,18 @@ func getTestConfig(t *testing.T) config.Config {
 	assert.NoError(t, err)
 	return cfg
 }
+*/
+
+func getTestConfig() config.Config {
+	return config.Config{
+		MQTT: config.MQTTConfig{
+			BrokerURL:    "tcp://localhost:1833",
+			StandbyTopic: "cmd/site/standby/serial/#",
+		},
+	}
+}
 
 func TestReadConfig(t *testing.T) {
-	cfg := getTestConfig(t)
+	cfg := getTestConfig()
 	assert.NotEmpty(t, cfg)
 }

@@ -12,14 +12,14 @@ import (
 type Service struct {
 	logger     *slog.Logger
 	cfg        config.Config
-	mqttClient mqtt.Client
+	MQTTClient mqtt.Client
 }
 
 func NewService(logger *slog.Logger, cfg config.Config) *Service {
 	return &Service{
 		logger:     logger,
 		cfg:        cfg,
-		mqttClient: initMQTTClient(cfg),
+		MQTTClient: initMQTTClient(cfg),
 	}
 }
 
@@ -47,7 +47,7 @@ func initMQTTClient(cfg config.Config) mqtt.Client {
 }
 
 func (s *Service) subscribeToTopic(topic string) {
-	token := s.mqttClient.Subscribe(topic, 1,
+	token := s.MQTTClient.Subscribe(topic, 1,
 		func(client mqtt.Client, msg mqtt.Message) {
 			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
 		})
@@ -56,7 +56,7 @@ func (s *Service) subscribeToTopic(topic string) {
 }
 
 func (s *Service) RunMQTT(ctx context.Context) error {
-	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+	if token := s.MQTTClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
@@ -66,5 +66,5 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 }
 
 func (s *Service) StopMQTT() {
-	s.mqttClient.Disconnect(uint(1000))
+	s.MQTTClient.Disconnect(uint(1000))
 }

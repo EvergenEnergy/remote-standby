@@ -5,9 +5,8 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/EvergenEnergy/remote-standby/config"
 	"github.com/EvergenEnergy/remote-standby/standby"
@@ -33,19 +32,18 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfgLevel}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
-	defer cancel()
-
 	standbyWorker := standby.Init(logger, cfg)
 
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Interrupt)
+	defer cancel()
 
 	go func() {
-		defer wg.Done()
-		standbyWorker.Start(ctx)
+		err := standbyWorker.Start(ctx)
+		if err != nil {
+			panic(err)
+		}
 	}()
 
-	wg.Wait()
+	<-ctx.Done()
 	_ = standbyWorker.Stop()
 }

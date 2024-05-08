@@ -11,11 +11,19 @@ type Config struct {
 	SiteName   string        `env:"SITE_NAME" required:"true"`
 	DeviceName string        `env:"DEVICE_NAME" required:"true"`
 	Logging    LoggingConfig `env:"LOGGING"`
+	MQTT       MQTTConfig    `env:"MQTT"`
 }
 
 // LoggingConfig is a config for logger.
 type LoggingConfig struct {
 	Level string `env:"LEVEL" default:"info"`
+}
+
+// MQTTConfig is a config for logger.
+type MQTTConfig struct {
+	BrokerURL    string `env:"BROKER_URL"`
+	CommandTopic string `env:"COMMAND_TOPIC"`
+	StandbyTopic string `env:"STANDBY_TOPIC"`
 }
 
 // FromEnv creates new config based on environment variables.

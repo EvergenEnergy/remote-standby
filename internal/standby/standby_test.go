@@ -5,8 +5,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/EvergenEnergy/remote-standby/config"
-	"github.com/EvergenEnergy/remote-standby/standby"
+	"github.com/EvergenEnergy/remote-standby/internal/config"
+	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/stretchr/testify/assert"
 )
 

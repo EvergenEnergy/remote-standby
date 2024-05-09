@@ -9,27 +9,27 @@ import (
 )
 
 // Config holds all configurable values of the service.
+// It can contain values specified either in the environment or by file,
+// but file-based values cannot be required.
 type Config struct {
-	SiteName     string        `env:"SITE_NAME" required:"true"`
-	SerialNumber string        `env:"SERIAL_NUMBER" required:"true"`
-	Logging      LoggingConfig `yaml:"Logging"`
-	MQTT         MQTTConfig    `yaml:"MQTT"`
+	SiteName          string        `env:"SITE_NAME" required:"true"`
+	SerialNumber      string        `env:"SERIAL_NUMBER" required:"true"`
+	ConfigurationPath string        `env:"CONFIGURATION_PATH" default:"config/config.yaml"`
+	Logging           LoggingConfig `yaml:"Logging"`
+	MQTT              MQTTConfig    `yaml:"MQTT"`
 }
 
-// LoggingConfig is a config for logger.
 type LoggingConfig struct {
 	Level string `yaml:"Level" default:"info"`
 }
 
-// MQTTConfig is a config for logger.
 type MQTTConfig struct {
-	BrokerURL    string `yaml:"BrokerUrl"`
-	CommandTopic string `yaml:"CommandTopic"`
-	StandbyTopic string `yaml:"StandbyTopic"`
+	BrokerURL    string `yaml:"BrokerUrl" default:"tcp://localhost:1883/"`
+	CommandTopic string `yaml:"CommandTopic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"`
+	StandbyTopic string `yaml:"StandbyTopic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
 }
 
-// FromEnv creates new config based on environment variables.
-func FromEnv() (Config, error) {
+func fromEnv() (Config, error) {
 	var cfg Config
 
 	if err := aconfig.LoaderFor(&cfg, aconfig.Config{}).Load(); err != nil {
@@ -42,9 +42,17 @@ func FromEnv() (Config, error) {
 func FromFile() (Config, error) {
 	var cfg Config
 
+	// read config from env vars first
+	configEnv, err := fromEnv()
+	if err != nil {
+		return Config{}, fmt.Errorf("unable to read config from env: %w", err)
+	}
+
+	// now read from both env and file, using the
+	// config path specified in the env var
 	loader := aconfig.LoaderFor(&cfg, aconfig.Config{
 		SkipFlags: true,
-		Files:     []string{"config/config.yaml"},
+		Files:     []string{configEnv.ConfigurationPath},
 		FileDecoders: map[string]aconfig.FileDecoder{
 			".yaml": aconfigyaml.New(),
 		},

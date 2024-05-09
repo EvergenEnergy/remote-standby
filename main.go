@@ -5,12 +5,12 @@ import (
 	"log"
 	"log/slog"
 	"os"
+	"os/signal"
 	"strings"
-	"sync"
-	"time"
 
 	"github.com/EvergenEnergy/remote-standby/config"
 	"github.com/EvergenEnergy/remote-standby/standby"
+	"github.com/EvergenEnergy/remote-standby/worker"
 )
 
 var logLevels = map[string]slog.Level{
@@ -33,19 +33,19 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfgLevel}))
 
-	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	standbyService := standby.NewService(logger, cfg)
+	standbyWorker := worker.NewWorker(logger, cfg, standbyService)
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Interrupt)
 	defer cancel()
 
-	standbyWorker := standby.Init(logger, cfg)
-
-	wg := &sync.WaitGroup{}
-	wg.Add(1)
-
 	go func() {
-		defer wg.Done()
-		standbyWorker.Start(ctx)
+		err := standbyWorker.Start(ctx)
+		if err != nil {
+			panic(err)
+		}
 	}()
 
-	wg.Wait()
+	<-ctx.Done()
 	_ = standbyWorker.Stop()
 }

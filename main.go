@@ -8,9 +8,9 @@ import (
 	"os/signal"
 	"strings"
 
-	"github.com/EvergenEnergy/remote-standby/config"
-	"github.com/EvergenEnergy/remote-standby/standby"
-	"github.com/EvergenEnergy/remote-standby/worker"
+	"github.com/EvergenEnergy/remote-standby/internal/config"
+	"github.com/EvergenEnergy/remote-standby/internal/standby"
+	"github.com/EvergenEnergy/remote-standby/internal/worker"
 )
 
 var logLevels = map[string]slog.Level{
@@ -21,7 +21,7 @@ var logLevels = map[string]slog.Level{
 }
 
 func main() {
-	cfg, err := config.FromEnv()
+	cfg, err := config.FromFile()
 	if err != nil {
 		log.Fatalf("reading config: %s", err)
 	}

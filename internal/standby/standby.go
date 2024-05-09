@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 
-	"github.com/EvergenEnergy/remote-standby/config"
+	"github.com/EvergenEnergy/remote-standby/internal/config"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 

@@ -3,7 +3,7 @@ package config_test
 import (
 	"testing"
 
-	"github.com/EvergenEnergy/remote-standby/config"
+	"github.com/EvergenEnergy/remote-standby/internal/config"
 
 	"github.com/stretchr/testify/assert"
 )

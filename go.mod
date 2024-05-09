@@ -4,6 +4,7 @@ go 1.22
 
 require (
 	github.com/cristalhq/aconfig v0.18.5
+	github.com/cristalhq/aconfig/aconfigyaml v0.17.1
 	github.com/eclipse/paho.mqtt.golang v1.4.3
 )
 

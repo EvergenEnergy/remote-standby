@@ -7,6 +7,7 @@ RUN go build -o /app .
 
 FROM alpine:3.19
 
-COPY --from=builder /app /
+RUN mkdir /command-standby
+COPY --from=builder /app /command-standby
 
-CMD ["/app"]
+CMD ["/command-standby/app"]

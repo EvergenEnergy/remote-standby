@@ -14,19 +14,19 @@ import (
 type Config struct {
 	SiteName          string        `env:"SITE_NAME" required:"true"`
 	SerialNumber      string        `env:"SERIAL_NUMBER" required:"true"`
-	ConfigurationPath string        `env:"CONFIGURATION_PATH" default:"config/config.yaml"`
-	Logging           LoggingConfig `yaml:"Logging"`
-	MQTT              MQTTConfig    `yaml:"MQTT"`
+	ConfigurationPath string        `env:"CONFIGURATION_PATH" default:"config.yaml"`
+	Logging           LoggingConfig `yaml:"logging"`
+	MQTT              MQTTConfig    `yaml:"mqtt"`
 }
 
 type LoggingConfig struct {
-	Level string `yaml:"Level" default:"info"`
+	Level string `yaml:"level" default:"info"`
 }
 
 type MQTTConfig struct {
-	BrokerURL    string `yaml:"BrokerUrl" default:"tcp://localhost:1883/"`
-	CommandTopic string `yaml:"CommandTopic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"`
-	StandbyTopic string `yaml:"StandbyTopic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
+	BrokerURL    string `yaml:"broker_url" default:"tcp://localhost:1883/"`
+	CommandTopic string `yaml:"command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"`
+	StandbyTopic string `yaml:"standby_topic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
 }
 
 func fromEnv() (Config, error) {

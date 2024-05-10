@@ -1,6 +1,6 @@
-Logging:
-  Level: debug
-MQTT:
-  BrokerUrl: "tcp://mosquitto:1883"
-  CommandTopic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"
-  StandbyTopic: "cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"
+logging:
+  level: debug
+mqtt:
+  broker_url: "tcp://mosquitto:1883"
+  command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"
+  standby_topic: "cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/foo"

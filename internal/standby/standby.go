@@ -2,10 +2,12 @@ package standby
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log/slog"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
+	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -46,11 +48,8 @@ func initMQTTClient(cfg config.Config) mqtt.Client {
 	return mqtt.NewClient(mqttOpts)
 }
 
-func (s *Service) subscribeToTopic(topic string) {
-	token := s.MQTTClient.Subscribe(topic, 1,
-		func(client mqtt.Client, msg mqtt.Message) {
-			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-		})
+func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
+	token := s.MQTTClient.Subscribe(topic, 1, handler)
 	token.Wait()
 	s.logger.Debug("Subscribed to topic " + topic)
 }
@@ -60,7 +59,20 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 		return token.Error()
 	}
 
-	s.subscribeToTopic(s.cfg.MQTT.StandbyTopic)
+	s.subscribeToTopic(s.cfg.MQTT.StandbyTopic,
+		func(client mqtt.Client, msg mqtt.Message) {
+			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+			optPlan := plan.OptimisationPlan{}
+
+			err := json.Unmarshal(msg.Payload(), &optPlan)
+			if err != nil {
+				s.logger.Error("reading optimisation plan", "error", err)
+			}
+			err = plan.WritePlan(optPlan, s.cfg.Standby.BackupFile)
+			if err != nil {
+				s.logger.Error("writing optimisation plan", "error", err)
+			}
+		})
 
 	return nil
 }

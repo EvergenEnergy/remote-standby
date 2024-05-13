@@ -20,7 +20,9 @@ services:
       CONFIGURATION_PATH: /config/config.yaml
       SITE_NAME: local
       SERIAL_NUMBER: test-end-to-end
+      STANDBY_BACKUP_FILE: /command-standby/backup/plan.json
     volumes:
       - ./tests/integration/config.yaml:/config/config.yaml
+      - ./backup:/command-standby/backup
     links: [mosquitto]
     depends_on: [mosquitto]

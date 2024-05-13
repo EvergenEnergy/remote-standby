@@ -7,7 +7,7 @@ import (
 )
 
 type PlanHandler struct {
-	OptimisationPlan OptimisationPlan
+	Path string `required:"True"`
 }
 
 type OptimisationPlan struct {
@@ -39,8 +39,12 @@ type OptimisationValue struct {
 	Unit  int     `json:"unit"`
 }
 
-func ReadPlan(path string) (OptimisationPlan, error) {
-	content, err := os.ReadFile(path)
+func NewHandler(path string) PlanHandler {
+	return PlanHandler{Path: path}
+}
+
+func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
+	content, err := os.ReadFile(p.Path)
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)
 	}
@@ -53,10 +57,10 @@ func ReadPlan(path string) (OptimisationPlan, error) {
 	return optPlan, nil
 }
 
-func WritePlan(optPlan OptimisationPlan, path string) error {
-	f, err := os.Create(path)
+func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
+	f, err := os.Create(p.Path)
 	if err != nil {
-		return fmt.Errorf("creating plan backup file at %s: %w", path, err)
+		return fmt.Errorf("creating plan backup file at %s: %w", p.Path, err)
 	}
 
 	encodedPlan, err := json.Marshal(optPlan)
@@ -66,7 +70,7 @@ func WritePlan(optPlan OptimisationPlan, path string) error {
 
 	_, err = f.Write(encodedPlan)
 	if err != nil {
-		return fmt.Errorf("writing plan to file at %s: %w", path, err)
+		return fmt.Errorf("writing plan to file at %s: %w", p.Path, err)
 	}
 
 	return nil

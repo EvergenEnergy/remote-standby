@@ -34,10 +34,12 @@ func TestWritesAndReadsAPlan(t *testing.T) {
 	}
 	planPath := fmt.Sprintf("/tmp/plan-%d.json", time.Now().Unix())
 
-	err := plan.WritePlan(optPlan, planPath)
+	handler := plan.NewHandler(planPath)
+
+	err := handler.WritePlan(optPlan)
 	assert.NoError(t, err)
 
-	plan2, err := plan.ReadPlan(planPath)
+	plan2, err := handler.ReadPlan()
 	assert.NoError(t, err)
 	assert.Equal(t, plan2.SiteID, "test-site")
 	assert.Equal(t, plan2.OptimisationIntervals[0].BatteryPower.Value, float32(100))

@@ -68,7 +68,8 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 			if err != nil {
 				s.logger.Error("reading optimisation plan", "error", err)
 			}
-			err = plan.WritePlan(optPlan, s.cfg.Standby.BackupFile)
+			handler := plan.NewHandler(s.cfg.Standby.BackupFile)
+			err = handler.WritePlan(optPlan)
 			if err != nil {
 				s.logger.Error("writing optimisation plan", "error", err)
 			}

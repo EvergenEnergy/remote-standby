@@ -17,6 +17,9 @@ jobs:
         with:
           go-version: '1.22.x'
 
+      - name: Install gotestsum
+        run: go get gotest.tools/gotestsum
+
       - name: Build
         run: go build -v ./...
 

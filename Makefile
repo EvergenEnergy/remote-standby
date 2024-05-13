@@ -30,13 +30,13 @@ test.integration.setup: test-prep
 	echo "dependencies started"
 
 test.unit.run:
-	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=cp.out -race -short -v ./...
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=covprofile -race -short -v ./...
 
 test.integration.run:
 	./tests/integration/end-to-end-tests.sh
 
 test.all.run:
-	gotestsum --junitfile test-reports/junit.xml -- -timeout 3m -count=1 -coverprofile=cp.out -race -v ./...
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 3m -count=1 -coverprofile=covprofile -race -v ./...
 
 test.integration.teardown:
 	docker compose -f docker-compose.yaml down -v

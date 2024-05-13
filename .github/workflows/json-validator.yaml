@@ -5,6 +5,7 @@ on:
     paths: ['**/*.json']
   pull_request:
     paths: ['**/*.json']
+  workflow_dispatch:
 jobs:
   validate-json:
     runs-on: ubuntu-latest

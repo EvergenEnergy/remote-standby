@@ -5,6 +5,7 @@ on:
     paths: ['Dockerfile', 'docker-compose.yml']
   pull_request:
     paths: ['Dockerfile', 'docker-compose.yml']
+  workflow_dispatch:
 jobs:
   lint:
     runs-on: ubuntu-latest

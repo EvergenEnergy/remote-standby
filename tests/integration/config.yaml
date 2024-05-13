@@ -1,0 +1,8 @@
+logging:
+  level: debug
+mqtt:
+  broker_url: "tcp://mosquitto:1883"
+  command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"
+  standby_topic: "cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/plan"
+standby:
+  backup_file: "/command-standby/backup/plan.json"

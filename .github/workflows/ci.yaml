@@ -17,11 +17,17 @@ jobs:
         with:
           go-version: '1.22.x'
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Build
         run: go build -v ./...
 
-      - name: Run Test
-        run: go test -race -v -covermode atomic -coverprofile=covprofile ./...
+      - name: Run unit tests
+        run: make test.unit
+
+      - name: Run integration tests
+        run: make test.integration
 
       - name: Install goveralls
         run: go install github.com/mattn/goveralls@latest

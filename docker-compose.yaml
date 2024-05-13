@@ -1,0 +1,26 @@
+---
+version: '3'
+services:
+  mosquitto:
+    container_name: mosquitto
+    image: eclipse-mosquitto:2.0.14
+    volumes: [./tests/mosquitto/:/mqtt/config/]
+    ports: [1883:1883, 9001:9001]
+    command: [mosquitto, -c, /mqtt/config/mosquitto.conf]
+    restart: always
+    logging:
+      options:
+        max-size: 10m
+  command_standby:
+    container_name: command_standby_local
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      CONFIGURATION_PATH: /config/config.yaml
+      SITE_NAME: local
+      SERIAL_NUMBER: test-end-to-end
+    volumes:
+      - ./tests/integration/config.yaml:/config/config.yaml
+    links: [mosquitto]
+    depends_on: [mosquitto]

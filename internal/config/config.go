@@ -26,8 +26,8 @@ type LoggingConfig struct {
 
 type MQTTConfig struct {
 	BrokerURL         string `yaml:"broker_url" default:"tcp://localhost:1883/"`
-	WriteCommandTopic string `yaml:"command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/cloud"`
-	ReadCommandTopic  string `yaml:"command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/standby"`
+	WriteCommandTopic string `yaml:"write_command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/standby"`
+	ReadCommandTopic  string `yaml:"read_command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/cloud"`
 	StandbyTopic      string `yaml:"standby_topic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
 	ErrorTopic        string `yaml:"error_topic" default:"dt/${SITE_NAME}/error/${SERIAL_NUMBER}"`
 }

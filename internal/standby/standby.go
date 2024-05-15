@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
@@ -38,7 +39,6 @@ func initMQTTClient(cfg config.Config) mqtt.Client {
 
 	mqttOpts := mqtt.NewClientOptions()
 	mqttOpts.AddBroker(brokerURL)
-	mqttOpts.SetClientID("remote-standby-client")
 	mqttOpts.SetCleanSession(true)
 	mqttOpts.SetAutoReconnect(true)
 	mqttOpts.SetOrderMatters(true)
@@ -66,12 +66,12 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 
 			err := json.Unmarshal(msg.Payload(), &optPlan)
 			if err != nil {
-				s.logger.Error("reading optimisation plan", "error", err)
+				s.publishError("reading optimisation plan", err)
 			}
 			handler := plan.NewHandler(s.cfg.Standby.BackupFile)
 			err = handler.WritePlan(optPlan)
 			if err != nil {
-				s.logger.Error("writing optimisation plan", "error", err)
+				s.publishError("writing optimisation plan", err)
 			}
 		})
 
@@ -80,4 +80,28 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 
 func (s *Service) StopMQTT() {
 	s.MQTTClient.Disconnect(uint(1000))
+}
+
+type ErrorPayload struct {
+	Category  string    `json:"category"`
+	Message   string    `json:"message"`
+	Timestamp time.Time `json:"timestamp"`
+}
+
+func (s *Service) publishError(message string, receivedError error) {
+	s.logger.Error(message, "error", receivedError)
+
+	payload := ErrorPayload{
+		Category:  "Standby",
+		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
+		Timestamp: time.Now(),
+	}
+	encPayload, err := json.Marshal(payload)
+	if err != nil {
+		s.logger.Error("marshalling error payload", "error", err)
+	}
+
+	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
+
+	s.MQTTClient.Publish(errTopic, 1, false, encPayload)
 }

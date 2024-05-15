@@ -25,9 +25,11 @@ type LoggingConfig struct {
 }
 
 type MQTTConfig struct {
-	BrokerURL    string `yaml:"broker_url" default:"tcp://localhost:1883/"`
-	CommandTopic string `yaml:"command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"`
-	StandbyTopic string `yaml:"standby_topic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
+	BrokerURL         string `yaml:"broker_url" default:"tcp://localhost:1883/"`
+	WriteCommandTopic string `yaml:"write_command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/standby"`
+	ReadCommandTopic  string `yaml:"read_command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/cloud"`
+	StandbyTopic      string `yaml:"standby_topic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
+	ErrorTopic        string `yaml:"error_topic" default:"dt/${SITE_NAME}/error/${SERIAL_NUMBER}"`
 }
 
 type StandbyConfig struct {
@@ -66,14 +68,15 @@ func FromFile() (Config, error) {
 		return Config{}, fmt.Errorf("unable to parse config: %w", err)
 	}
 
-	cfg.interpolateEnvVars()
+	cfg.InterpolateEnvVars()
 
 	return cfg, nil
 }
 
-func (cfg *Config) interpolateEnvVars() {
-	cfg.MQTT.CommandTopic = strings.Replace(cfg.MQTT.CommandTopic, "${SITE_NAME}", cfg.SiteName, -1)
-	cfg.MQTT.CommandTopic = strings.Replace(cfg.MQTT.CommandTopic, "${SERIAL_NUMBER}", cfg.SerialNumber, -1)
-	cfg.MQTT.StandbyTopic = strings.Replace(cfg.MQTT.StandbyTopic, "${SITE_NAME}", cfg.SiteName, -1)
-	cfg.MQTT.StandbyTopic = strings.Replace(cfg.MQTT.StandbyTopic, "${SERIAL_NUMBER}", cfg.SerialNumber, -1)
+func (cfg *Config) InterpolateEnvVars() {
+	replacer := strings.NewReplacer("${SITE_NAME}", cfg.SiteName, "${SERIAL_NUMBER}", cfg.SerialNumber)
+	cfg.MQTT.ReadCommandTopic = replacer.Replace(cfg.MQTT.ReadCommandTopic)
+	cfg.MQTT.WriteCommandTopic = replacer.Replace(cfg.MQTT.WriteCommandTopic)
+	cfg.MQTT.StandbyTopic = replacer.Replace(cfg.MQTT.StandbyTopic)
+	cfg.MQTT.ErrorTopic = replacer.Replace(cfg.MQTT.ErrorTopic)
 }

@@ -13,9 +13,10 @@ import (
 )
 
 type Service struct {
-	logger     *slog.Logger
-	cfg        config.Config
-	MQTTClient mqtt.Client
+	logger                *slog.Logger
+	cfg                   config.Config
+	MQTTClient            mqtt.Client
+	latestCommandReceived time.Time
 }
 
 func NewService(logger *slog.Logger, cfg config.Config) *Service {
@@ -75,11 +76,59 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 			}
 		})
 
+	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic,
+		func(client mqtt.Client, msg mqtt.Message) {
+			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+			s.latestCommandReceived = time.Now()
+		})
+
 	return nil
 }
 
 func (s *Service) StopMQTT() {
 	s.MQTTClient.Disconnect(uint(1000))
+}
+
+func (s *Service) RunDetector(ctx context.Context) {
+	checkInterval := time.Duration(s.cfg.Standby.CheckInterval) * time.Second
+	outageDuration := time.Duration(s.cfg.Standby.OutageInterval) * time.Second
+
+	// initialise this so we don't immediately go into failure mode on startup
+	s.latestCommandReceived = time.Now()
+
+	ticker := time.NewTicker(checkInterval)
+	for {
+		select {
+		case <-ticker.C:
+			s.checkForOutage(outageDuration)
+		case <-ctx.Done():
+			ticker.Stop()
+
+			s.logger.Info("Shutting down detector")
+
+			return
+		}
+	}
+}
+
+func (s *Service) checkForOutage(outageDuration time.Duration) {
+	timeSinceLastCmd := time.Since(s.latestCommandReceived)
+	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
+	if timeSinceLastCmd > outageDuration {
+		s.logger.Info("Outage detected", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
+	}
+}
+
+func (s *Service) Start(ctx context.Context) error {
+	if err := s.RunMQTT(ctx); err != nil {
+		return fmt.Errorf("starting MQTT client: %w", err)
+	}
+	s.RunDetector(ctx)
+	return nil
+}
+
+func (s *Service) Stop() {
+	s.StopMQTT()
 }
 
 type ErrorPayload struct {

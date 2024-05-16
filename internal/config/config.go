@@ -33,7 +33,9 @@ type MQTTConfig struct {
 }
 
 type StandbyConfig struct {
-	BackupFile string `yaml:"backup_file" default:"plan.json"`
+	BackupFile     string `yaml:"backup_file" default:"plan.json"`
+	CheckInterval  int    `yaml:"check_interval" default:"60"`
+	OutageInterval int    `yaml:"outage_interval" default:"120"`
 }
 
 func fromEnv() (Config, error) {

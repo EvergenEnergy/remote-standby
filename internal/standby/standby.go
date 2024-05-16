@@ -12,11 +12,19 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
+type ServiceMode string
+
+var (
+	StandbyMode = ServiceMode("standby")
+	CommandMode = ServiceMode("command")
+)
+
 type Service struct {
 	logger                *slog.Logger
 	cfg                   config.Config
 	MQTTClient            mqtt.Client
-	latestCommandReceived time.Time
+	LatestCommandReceived time.Time
+	Mode                  ServiceMode
 }
 
 func NewService(logger *slog.Logger, cfg config.Config) *Service {
@@ -24,6 +32,7 @@ func NewService(logger *slog.Logger, cfg config.Config) *Service {
 		logger:     logger,
 		cfg:        cfg,
 		MQTTClient: initMQTTClient(cfg),
+		Mode:       StandbyMode,
 	}
 }
 
@@ -79,7 +88,7 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic,
 		func(client mqtt.Client, msg mqtt.Message) {
 			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-			s.latestCommandReceived = time.Now()
+			s.LatestCommandReceived = time.Now()
 		})
 
 	return nil
@@ -94,13 +103,13 @@ func (s *Service) RunDetector(ctx context.Context) {
 	outageDuration := time.Duration(s.cfg.Standby.OutageInterval) * time.Second
 
 	// initialise this so we don't immediately go into failure mode on startup
-	s.latestCommandReceived = time.Now()
+	s.LatestCommandReceived = time.Now()
 
 	ticker := time.NewTicker(checkInterval)
 	for {
 		select {
 		case <-ticker.C:
-			s.checkForOutage(outageDuration)
+			s.CheckForOutage(outageDuration)
 		case <-ctx.Done():
 			ticker.Stop()
 
@@ -111,11 +120,22 @@ func (s *Service) RunDetector(ctx context.Context) {
 	}
 }
 
-func (s *Service) checkForOutage(outageDuration time.Duration) {
-	timeSinceLastCmd := time.Since(s.latestCommandReceived)
+func (s *Service) CheckForOutage(outageDuration time.Duration) {
+	timeSinceLastCmd := time.Since(s.LatestCommandReceived)
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
 	if timeSinceLastCmd > outageDuration {
-		s.logger.Info("Outage detected", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
+		if s.Mode == StandbyMode {
+			s.logger.Info("Outage detected", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
+			s.Mode = CommandMode
+		} else {
+			s.logger.Debug("Ongoing outage", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
+		}
+		// TODO: Trigger a process to identify closest optimisation command from plan and send it
+	} else {
+		if s.Mode == CommandMode {
+			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
+			s.Mode = StandbyMode
+		}
 	}
 }
 

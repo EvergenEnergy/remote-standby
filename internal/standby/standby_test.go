@@ -17,7 +17,7 @@ var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level:
 func getTestConfig() config.Config {
 	return config.Config{
 		MQTT: config.MQTTConfig{
-			BrokerURL:    "tcp://mosquitto:1883",
+			BrokerURL:    "tcp://localhost:1883",
 			StandbyTopic: "cmd/site/standby/serial/#",
 		},
 		Standby: config.StandbyConfig{

@@ -51,7 +51,7 @@ func TestDetectsOutage(t *testing.T) {
 	// Start at current time, latest command received 1 second ago
 	interval := time.Duration(2 * time.Second)
 	currentTime := time.Now()
-	svc.latestCommandReceived = currentTime.Add(-1 * time.Second)
+	svc.setCommandTimestamp(currentTime.Add(-1 * time.Second))
 
 	// First check after 1 interval, command is recent, remain in standby
 	currentTime = currentTime.Add(1 * interval)
@@ -70,7 +70,7 @@ func TestDetectsOutage(t *testing.T) {
 
 	// After 4 intervals, new command received, resume standby mode
 	currentTime = currentTime.Add(4 * interval)
-	svc.latestCommandReceived = currentTime.Add(-1 * time.Second)
+	svc.setCommandTimestamp(currentTime.Add(-1 * time.Second))
 	svc.CheckForOutage(currentTime)
 	assert.EqualValues(t, svc.mode, StandbyMode)
 }

@@ -90,7 +90,7 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic,
 		func(client mqtt.Client, msg mqtt.Message) {
 			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-			s.setCommandTimestamp()
+			s.setCommandTimestamp(time.Now())
 		})
 
 	return nil
@@ -104,7 +104,7 @@ func (s *Service) RunDetector(ctx context.Context) {
 	checkInterval := s.cfg.Standby.CheckInterval
 
 	// initialise this so we don't immediately go into failure mode on startup
-	s.setCommandTimestamp()
+	s.setCommandTimestamp(time.Now())
 
 	ticker := time.NewTicker(checkInterval)
 	for {
@@ -177,10 +177,10 @@ func (s *Service) publishError(message string, receivedError error) {
 	s.mqttClient.Publish(errTopic, 1, false, encPayload)
 }
 
-func (s *Service) setCommandTimestamp() {
+func (s *Service) setCommandTimestamp(setTime time.Time) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.latestCommandReceived = time.Now()
+	s.latestCommandReceived = setTime
 }
 
 func (s *Service) getCommandTimestamp() time.Time {

@@ -44,12 +44,18 @@ func TestRunsAClient_Integration(t *testing.T) {
 	svc.StopMQTT()
 }
 
-func TestChecksForOutage(t *testing.T) {
+func TestDetectsOutage(t *testing.T) {
 	cfg := getTestConfig()
 	svc := NewService(testLogger, cfg)
-	svc.latestCommandReceived = time.Now()
+	currentTime := time.Now()
+
+	threeSecondsAgo := time.Duration(-3 * time.Second)
+	svc.latestCommandReceived = currentTime.Add(threeSecondsAgo)
+	svc.CheckForOutage(currentTime)
 	assert.EqualValues(t, svc.mode, StandbyMode)
-	time.Sleep(4 * time.Second)
-	svc.CheckForOutage()
+
+	fiveSecondsAgo := time.Duration(-5 * time.Second)
+	svc.latestCommandReceived = currentTime.Add(fiveSecondsAgo)
+	svc.CheckForOutage(currentTime)
 	assert.EqualValues(t, svc.mode, CommandMode)
 }

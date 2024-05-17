@@ -110,7 +110,7 @@ func (s *Service) RunDetector(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			s.CheckForOutage()
+			s.CheckForOutage(time.Now())
 		case <-ctx.Done():
 			ticker.Stop()
 
@@ -121,9 +121,9 @@ func (s *Service) RunDetector(ctx context.Context) {
 	}
 }
 
-func (s *Service) CheckForOutage() {
+func (s *Service) CheckForOutage(currentTime time.Time) {
 	outageThreshold := s.cfg.Standby.OutageThreshold
-	timeSinceLastCmd := time.Since(s.getCommandTimestamp())
+	timeSinceLastCmd := currentTime.Sub(s.getCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
 	if timeSinceLastCmd > outageThreshold {
 		if s.mode == StandbyMode {

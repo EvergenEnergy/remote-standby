@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"sync"
 	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
@@ -25,6 +26,7 @@ type Service struct {
 	MQTTClient            mqtt.Client
 	LatestCommandReceived time.Time
 	Mode                  ServiceMode
+	mutex                 sync.Mutex
 }
 
 func NewService(logger *slog.Logger, cfg config.Config) *Service {
@@ -88,7 +90,7 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic,
 		func(client mqtt.Client, msg mqtt.Message) {
 			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-			s.LatestCommandReceived = time.Now()
+			s.setCommandTimestamp()
 		})
 
 	return nil
@@ -103,7 +105,7 @@ func (s *Service) RunDetector(ctx context.Context) {
 	outageDuration := time.Duration(s.cfg.Standby.OutageInterval) * time.Second
 
 	// initialise this so we don't immediately go into failure mode on startup
-	s.LatestCommandReceived = time.Now()
+	s.setCommandTimestamp()
 
 	ticker := time.NewTicker(checkInterval)
 	for {
@@ -121,7 +123,7 @@ func (s *Service) RunDetector(ctx context.Context) {
 }
 
 func (s *Service) CheckForOutage(outageDuration time.Duration) {
-	timeSinceLastCmd := time.Since(s.LatestCommandReceived)
+	timeSinceLastCmd := time.Since(s.getCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
 	if timeSinceLastCmd > outageDuration {
 		if s.Mode == StandbyMode {
@@ -143,7 +145,7 @@ func (s *Service) Start(ctx context.Context) error {
 	if err := s.RunMQTT(ctx); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
-	s.RunDetector(ctx)
+	go s.RunDetector(ctx)
 	return nil
 }
 
@@ -173,4 +175,16 @@ func (s *Service) publishError(message string, receivedError error) {
 	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
 
 	s.MQTTClient.Publish(errTopic, 1, false, encPayload)
+}
+
+func (s *Service) setCommandTimestamp() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.LatestCommandReceived = time.Now()
+}
+
+func (s *Service) getCommandTimestamp() time.Time {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return s.LatestCommandReceived
 }

@@ -1,4 +1,4 @@
-package standby_test
+package standby
 
 import (
 	"context"
@@ -8,11 +8,10 @@ import (
 	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
-	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/stretchr/testify/assert"
 )
 
-var logger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
 
 func getTestConfig() config.Config {
 	return config.Config{
@@ -21,16 +20,16 @@ func getTestConfig() config.Config {
 			StandbyTopic: "cmd/site/standby/serial/#",
 		},
 		Standby: config.StandbyConfig{
-			CheckInterval:  2,
-			OutageInterval: 4,
+			CheckInterval:   time.Duration(2 * time.Second),
+			OutageThreshold: time.Duration(4 * time.Second),
 		},
 	}
 }
 
 func TestInitsAClient(t *testing.T) {
 	cfg := getTestConfig()
-	svc := standby.NewService(logger, cfg)
-	assert.NotEmpty(t, svc.MQTTClient)
+	svc := NewService(testLogger, cfg)
+	assert.NotEmpty(t, svc.mqttClient)
 }
 
 func TestRunsAClient_Integration(t *testing.T) {
@@ -39,7 +38,7 @@ func TestRunsAClient_Integration(t *testing.T) {
 	}
 	cfg := getTestConfig()
 
-	svc := standby.NewService(logger, cfg)
+	svc := NewService(testLogger, cfg)
 	err := svc.RunMQTT(context.Background())
 	assert.NoError(t, err)
 	svc.StopMQTT()
@@ -47,10 +46,10 @@ func TestRunsAClient_Integration(t *testing.T) {
 
 func TestChecksForOutage(t *testing.T) {
 	cfg := getTestConfig()
-	svc := standby.NewService(logger, cfg)
-	svc.LatestCommandReceived = time.Now()
-	assert.EqualValues(t, svc.Mode, standby.StandbyMode)
+	svc := NewService(testLogger, cfg)
+	svc.latestCommandReceived = time.Now()
+	assert.EqualValues(t, svc.mode, StandbyMode)
 	time.Sleep(4 * time.Second)
-	svc.CheckForOutage(time.Duration(cfg.Standby.OutageInterval) * time.Second)
-	assert.EqualValues(t, svc.Mode, standby.CommandMode)
+	svc.CheckForOutage()
+	assert.EqualValues(t, svc.mode, CommandMode)
 }

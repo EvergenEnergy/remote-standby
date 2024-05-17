@@ -15,17 +15,17 @@ import (
 
 type ServiceMode string
 
-var (
-	StandbyMode = ServiceMode("standby")
-	CommandMode = ServiceMode("command")
+const (
+	StandbyMode ServiceMode = "standby"
+	CommandMode ServiceMode = "command"
 )
 
 type Service struct {
 	logger                *slog.Logger
 	cfg                   config.Config
-	MQTTClient            mqtt.Client
-	LatestCommandReceived time.Time
-	Mode                  ServiceMode
+	mqttClient            mqtt.Client
+	latestCommandReceived time.Time
+	mode                  ServiceMode
 	mutex                 sync.Mutex
 }
 
@@ -33,8 +33,8 @@ func NewService(logger *slog.Logger, cfg config.Config) *Service {
 	return &Service{
 		logger:     logger,
 		cfg:        cfg,
-		MQTTClient: initMQTTClient(cfg),
-		Mode:       StandbyMode,
+		mqttClient: initMQTTClient(cfg),
+		mode:       StandbyMode,
 	}
 }
 
@@ -61,13 +61,13 @@ func initMQTTClient(cfg config.Config) mqtt.Client {
 }
 
 func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
-	token := s.MQTTClient.Subscribe(topic, 1, handler)
+	token := s.mqttClient.Subscribe(topic, 1, handler)
 	token.Wait()
 	s.logger.Debug("Subscribed to topic " + topic)
 }
 
 func (s *Service) RunMQTT(ctx context.Context) error {
-	if token := s.MQTTClient.Connect(); token.Wait() && token.Error() != nil {
+	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
@@ -97,12 +97,11 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 }
 
 func (s *Service) StopMQTT() {
-	s.MQTTClient.Disconnect(uint(1000))
+	s.mqttClient.Disconnect(uint(1000))
 }
 
 func (s *Service) RunDetector(ctx context.Context) {
-	checkInterval := time.Duration(s.cfg.Standby.CheckInterval) * time.Second
-	outageDuration := time.Duration(s.cfg.Standby.OutageInterval) * time.Second
+	checkInterval := s.cfg.Standby.CheckInterval
 
 	// initialise this so we don't immediately go into failure mode on startup
 	s.setCommandTimestamp()
@@ -111,7 +110,7 @@ func (s *Service) RunDetector(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			s.CheckForOutage(outageDuration)
+			s.CheckForOutage()
 		case <-ctx.Done():
 			ticker.Stop()
 
@@ -122,21 +121,22 @@ func (s *Service) RunDetector(ctx context.Context) {
 	}
 }
 
-func (s *Service) CheckForOutage(outageDuration time.Duration) {
+func (s *Service) CheckForOutage() {
+	outageThreshold := s.cfg.Standby.OutageThreshold
 	timeSinceLastCmd := time.Since(s.getCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
-	if timeSinceLastCmd > outageDuration {
-		if s.Mode == StandbyMode {
-			s.logger.Info("Outage detected", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
-			s.Mode = CommandMode
+	if timeSinceLastCmd > outageThreshold {
+		if s.mode == StandbyMode {
+			s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
+			s.mode = CommandMode
 		} else {
-			s.logger.Debug("Ongoing outage", "config duration", outageDuration, "time since last command", timeSinceLastCmd)
+			s.logger.Debug("Ongoing outage", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 		}
 		// TODO: Trigger a process to identify closest optimisation command from plan and send it
 	} else {
-		if s.Mode == CommandMode {
+		if s.mode == CommandMode {
 			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
-			s.Mode = StandbyMode
+			s.mode = StandbyMode
 		}
 	}
 }
@@ -174,17 +174,17 @@ func (s *Service) publishError(message string, receivedError error) {
 
 	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
 
-	s.MQTTClient.Publish(errTopic, 1, false, encPayload)
+	s.mqttClient.Publish(errTopic, 1, false, encPayload)
 }
 
 func (s *Service) setCommandTimestamp() {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.LatestCommandReceived = time.Now()
+	s.latestCommandReceived = time.Now()
 }
 
 func (s *Service) getCommandTimestamp() time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.LatestCommandReceived
+	return s.latestCommandReceived
 }

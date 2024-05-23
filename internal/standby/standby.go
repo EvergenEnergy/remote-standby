@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
+	"github.com/EvergenEnergy/remote-standby/internal/storage"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
 
@@ -21,43 +22,23 @@ const (
 )
 
 type Service struct {
-	logger                *slog.Logger
-	cfg                   config.Config
-	mqttClient            mqtt.Client
-	latestCommandReceived time.Time
-	mode                  ServiceMode
-	mutex                 sync.Mutex
+	logger     *slog.Logger
+	cfg        config.Config
+	mqttClient mqtt.Client
+	storageSvc *storage.Service
+	mutex      *sync.Mutex
+	mode       ServiceMode
 }
 
-func NewService(logger *slog.Logger, cfg config.Config) *Service {
+func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, mqttClient mqtt.Client) *Service {
 	return &Service{
 		logger:     logger,
 		cfg:        cfg,
-		mqttClient: initMQTTClient(cfg),
+		mqttClient: mqttClient,
+		storageSvc: storage,
+		mutex:      new(sync.Mutex),
 		mode:       StandbyMode,
 	}
-}
-
-var onConnect mqtt.OnConnectHandler = func(client mqtt.Client) {
-	fmt.Println("Connected")
-}
-
-var onConnectionLost mqtt.ConnectionLostHandler = func(client mqtt.Client, err error) {
-	fmt.Printf("Connect lost: %v", err)
-}
-
-func initMQTTClient(cfg config.Config) mqtt.Client {
-	brokerURL := cfg.MQTT.BrokerURL
-
-	mqttOpts := mqtt.NewClientOptions()
-	mqttOpts.AddBroker(brokerURL)
-	mqttOpts.SetCleanSession(true)
-	mqttOpts.SetAutoReconnect(true)
-	mqttOpts.SetOrderMatters(true)
-	mqttOpts.SetOnConnectHandler(onConnect)
-	mqttOpts.SetConnectionLostHandler(onConnectionLost)
-
-	return mqtt.NewClient(mqttOpts)
 }
 
 func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
@@ -66,32 +47,33 @@ func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
 	s.logger.Debug("Subscribed to topic " + topic)
 }
 
+func (s *Service) handleCommandMessage(client mqtt.Client, msg mqtt.Message) {
+	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+	s.storageSvc.SetCommandTimestamp(time.Now())
+}
+
+func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
+	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+	optPlan := plan.OptimisationPlan{}
+
+	err := json.Unmarshal(msg.Payload(), &optPlan)
+	if err != nil {
+		s.publishError("reading optimisation plan", err)
+	}
+	handler := plan.NewHandler(s.cfg.Standby.BackupFile)
+	err = handler.WritePlan(optPlan)
+	if err != nil {
+		s.publishError("writing optimisation plan", err)
+	}
+}
+
 func (s *Service) RunMQTT(ctx context.Context) error {
 	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
-	s.subscribeToTopic(s.cfg.MQTT.StandbyTopic,
-		func(client mqtt.Client, msg mqtt.Message) {
-			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-			optPlan := plan.OptimisationPlan{}
-
-			err := json.Unmarshal(msg.Payload(), &optPlan)
-			if err != nil {
-				s.publishError("reading optimisation plan", err)
-			}
-			handler := plan.NewHandler(s.cfg.Standby.BackupFile)
-			err = handler.WritePlan(optPlan)
-			if err != nil {
-				s.publishError("writing optimisation plan", err)
-			}
-		})
-
-	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic,
-		func(client mqtt.Client, msg mqtt.Message) {
-			s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
-			s.setCommandTimestamp(time.Now())
-		})
+	s.subscribeToTopic(s.cfg.MQTT.StandbyTopic, s.handlePlanMessage)
+	s.subscribeToTopic(s.cfg.MQTT.ReadCommandTopic, s.handleCommandMessage)
 
 	return nil
 }
@@ -102,9 +84,6 @@ func (s *Service) StopMQTT() {
 
 func (s *Service) RunDetector(ctx context.Context) {
 	checkInterval := s.cfg.Standby.CheckInterval
-
-	// initialise this so we don't immediately go into failure mode on startup
-	s.setCommandTimestamp(time.Now())
 
 	ticker := time.NewTicker(checkInterval)
 	for {
@@ -123,20 +102,20 @@ func (s *Service) RunDetector(ctx context.Context) {
 
 func (s *Service) CheckForOutage(currentTime time.Time) {
 	outageThreshold := s.cfg.Standby.OutageThreshold
-	timeSinceLastCmd := currentTime.Sub(s.getCommandTimestamp())
+	timeSinceLastCmd := currentTime.Sub(s.storageSvc.GetCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
 	if timeSinceLastCmd > outageThreshold {
-		if s.mode == StandbyMode {
+		if s.InStandbyMode() {
 			s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
-			s.mode = CommandMode
+			s.setMode(CommandMode)
 		} else {
 			s.logger.Debug("Ongoing outage", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 		}
 		// TODO: Trigger a process to identify closest optimisation command from plan and send it
 	} else {
-		if s.mode == CommandMode {
+		if s.InCommandMode() {
 			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
-			s.mode = StandbyMode
+			s.setMode(StandbyMode)
 		}
 	}
 }
@@ -177,14 +156,22 @@ func (s *Service) publishError(message string, receivedError error) {
 	s.mqttClient.Publish(errTopic, 1, false, encPayload)
 }
 
-func (s *Service) setCommandTimestamp(setTime time.Time) {
+func (s *Service) setMode(newMode ServiceMode) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	s.latestCommandReceived = setTime
+	s.mode = newMode
 }
 
-func (s *Service) getCommandTimestamp() time.Time {
+func (s *Service) getMode() ServiceMode {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	return s.latestCommandReceived
+	return s.mode
+}
+
+func (s *Service) InStandbyMode() bool {
+	return s.getMode() == StandbyMode
+}
+
+func (s *Service) InCommandMode() bool {
+	return s.getMode() == CommandMode
 }

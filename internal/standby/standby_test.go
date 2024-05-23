@@ -15,7 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+var (
+	testLogger     = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	defaultTimeout = 10 * time.Second
+)
 
 func getTestConfig() config.Config {
 	return config.Config{
@@ -31,6 +34,23 @@ func getTestConfig() config.Config {
 	}
 }
 
+func TestSubscribesToTopics(t *testing.T) {
+	cfg := getTestConfig()
+	mqttClient := internalMQTT.MockClient{}
+	storageSvc := storage.NewService(testLogger)
+	svc := standby.NewService(testLogger, cfg, storageSvc, &mqttClient)
+
+	t.Log("about to run runmqtt")
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+
+	err := svc.Start(ctx)
+	t.Log("started runmqtt")
+	assert.NoError(t, err)
+	assert.EqualValues(t, mqttClient.SubscribedTopics, []string{cfg.MQTT.StandbyTopic, cfg.MQTT.ReadCommandTopic})
+	svc.Stop()
+}
+
 func TestRunsAClient_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode.")
@@ -40,9 +60,11 @@ func TestRunsAClient_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
 
-	err := svc.RunMQTT(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	err := svc.Start(ctx)
 	assert.NoError(t, err)
-	svc.StopMQTT()
+	svc.Stop()
 }
 
 func TestDetectsOutage_Integration(t *testing.T) {
@@ -55,7 +77,9 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
 
-	err := svc.Start(context.Background())
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	err := svc.Start(ctx)
 	assert.NoError(t, err)
 	time.Sleep(time.Second)
 

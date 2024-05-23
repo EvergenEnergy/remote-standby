@@ -9,9 +9,10 @@ import (
 	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
+	mqtt "github.com/EvergenEnergy/remote-standby/internal/mqtt"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
-	mqtt "github.com/eclipse/paho.mqtt.golang"
+	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 type ServiceMode string
@@ -24,35 +25,35 @@ const (
 type Service struct {
 	logger     *slog.Logger
 	cfg        config.Config
-	mqttClient mqtt.Client
+	client     mqtt.MqttClient
 	storageSvc *storage.Service
 	mutex      *sync.Mutex
 	mode       ServiceMode
 }
 
-func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, mqttClient mqtt.Client) *Service {
+func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, client mqtt.MqttClient) *Service {
 	return &Service{
 		logger:     logger,
 		cfg:        cfg,
-		mqttClient: mqttClient,
+		client:     client,
 		storageSvc: storage,
 		mutex:      new(sync.Mutex),
 		mode:       StandbyMode,
 	}
 }
 
-func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
-	token := s.mqttClient.Subscribe(topic, 1, handler)
+func (s *Service) subscribeToTopic(topic string, handler mqtt.MqttMessageHandler) {
+	token := s.client.Subscribe(topic, 1, handler.(pahoMQTT.MessageHandler))
 	token.Wait()
 	s.logger.Debug("Subscribed to topic " + topic)
 }
 
-func (s *Service) handleCommandMessage(client mqtt.Client, msg mqtt.Message) {
+func (s *Service) handleCommandMessage(client mqtt.MqttClient, msg pahoMQTT.Message) {
 	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	s.storageSvc.SetCommandTimestamp(time.Now())
 }
 
-func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
+func (s *Service) handlePlanMessage(client mqtt.MqttClient, msg pahoMQTT.Message) {
 	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	optPlan := plan.OptimisationPlan{}
 
@@ -67,8 +68,8 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func (s *Service) RunMQTT(ctx context.Context) error {
-	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
+func (s *Service) runMQTT(ctx context.Context) error {
+	if token := s.client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
 
@@ -78,11 +79,11 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) StopMQTT() {
-	s.mqttClient.Disconnect(uint(1000))
+func (s *Service) stopMQTT() {
+	s.client.Disconnect(uint(1000))
 }
 
-func (s *Service) RunDetector(ctx context.Context) {
+func (s *Service) runDetector(ctx context.Context) {
 	checkInterval := s.cfg.Standby.CheckInterval
 
 	ticker := time.NewTicker(checkInterval)
@@ -121,15 +122,15 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.RunMQTT(ctx); err != nil {
+	if err := s.runMQTT(ctx); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
-	go s.RunDetector(ctx)
+	go s.runDetector(ctx)
 	return nil
 }
 
 func (s *Service) Stop() {
-	s.StopMQTT()
+	s.stopMQTT()
 }
 
 type ErrorPayload struct {
@@ -153,7 +154,7 @@ func (s *Service) publishError(message string, receivedError error) {
 
 	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
 
-	s.mqttClient.Publish(errTopic, 1, false, encPayload)
+	s.client.Publish(errTopic, 1, false, encPayload)
 }
 
 func (s *Service) setMode(newMode ServiceMode) {

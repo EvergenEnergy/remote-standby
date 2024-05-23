@@ -1,10 +1,7 @@
 package mqtt
 
 import (
-	"fmt"
 	"time"
-
-	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 type MockToken struct{}
@@ -18,7 +15,7 @@ func (w *MockToken) WaitTimeout(delay time.Duration) bool {
 }
 
 func (w *MockToken) Error() error {
-	return fmt.Errorf("")
+	return nil
 }
 
 func (w *MockToken) Done() <-chan struct{} {
@@ -38,13 +35,13 @@ func (m *MockClient) Subscribe(topic string, qos byte, handler MqttMessageHandle
 }
 
 func (m *MockClient) Connect() MqttToken {
-	token := &pahoMQTT.ConnectToken{}
+	token := &MockToken{}
 	return &TokenWrapper{token: token}
 }
 
 func (m *MockClient) Disconnect(delay uint) {}
 
 func (m *MockClient) Publish(topic string, qos byte, retained bool, payload interface{}) MqttToken {
-	token := &pahoMQTT.PublishToken{}
+	token := &MockToken{}
 	return &TokenWrapper{token: token}
 }

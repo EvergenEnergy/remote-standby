@@ -47,6 +47,7 @@ func TestSubscribesToTopics(t *testing.T) {
 	err := svc.Start(ctx)
 	t.Log("started runmqtt")
 	assert.NoError(t, err)
+	time.Sleep(time.Second)
 	assert.EqualValues(t, mqttClient.SubscribedTopics, []string{cfg.MQTT.StandbyTopic, cfg.MQTT.ReadCommandTopic})
 	svc.Stop()
 }

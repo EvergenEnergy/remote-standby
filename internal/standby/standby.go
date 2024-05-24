@@ -67,7 +67,7 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func (s *Service) RunMQTT(ctx context.Context) error {
+func (s *Service) runMQTT(ctx context.Context) error {
 	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -78,11 +78,11 @@ func (s *Service) RunMQTT(ctx context.Context) error {
 	return nil
 }
 
-func (s *Service) StopMQTT() {
+func (s *Service) stopMQTT() {
 	s.mqttClient.Disconnect(uint(1000))
 }
 
-func (s *Service) RunDetector(ctx context.Context) {
+func (s *Service) runDetector(ctx context.Context) {
 	checkInterval := s.cfg.Standby.CheckInterval
 
 	ticker := time.NewTicker(checkInterval)
@@ -121,15 +121,15 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.RunMQTT(ctx); err != nil {
+	if err := s.runMQTT(ctx); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
-	go s.RunDetector(ctx)
+	go s.runDetector(ctx)
 	return nil
 }
 
 func (s *Service) Stop() {
-	s.StopMQTT()
+	s.stopMQTT()
 }
 
 type ErrorPayload struct {

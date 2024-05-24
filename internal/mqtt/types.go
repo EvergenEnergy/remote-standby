@@ -1,6 +1,10 @@
 package mqtt
 
-import "time"
+import (
+	"time"
+
+	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
+)
 
 type MqttToken interface {
 	Wait() bool
@@ -10,10 +14,8 @@ type MqttToken interface {
 }
 
 type MqttClient interface {
-	Subscribe(topic string, qos byte, handler MqttMessageHandler) MqttToken
+	Subscribe(topic string, qos byte, handler pahoMQTT.MessageHandler) MqttToken
 	Connect() MqttToken
 	Disconnect(delay uint)
 	Publish(topic string, qos byte, retained bool, payload interface{}) MqttToken
 }
-
-type MqttMessageHandler interface{}

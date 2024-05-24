@@ -42,18 +42,19 @@ func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service
 	}
 }
 
-func (s *Service) subscribeToTopic(topic string, handler mqtt.MqttMessageHandler) {
-	token := s.client.Subscribe(topic, 1, handler.(pahoMQTT.MessageHandler))
+func (s *Service) subscribeToTopic(topic string, handler pahoMQTT.MessageHandler) {
+	token := s.client.Subscribe(topic, 1, handler)
 	token.Wait()
 	s.logger.Debug("Subscribed to topic " + topic)
 }
 
-func (s *Service) handleCommandMessage(client mqtt.MqttClient, msg pahoMQTT.Message) {
+func (s *Service) handleCommandMessage(client pahoMQTT.Client, msg pahoMQTT.Message) {
 	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	s.storageSvc.SetCommandTimestamp(time.Now())
 }
 
-func (s *Service) handlePlanMessage(client mqtt.MqttClient, msg pahoMQTT.Message) {
+func (s *Service) handlePlanMessage(client pahoMQTT.Client, msg pahoMQTT.Message) {
+	s.logger.Debug(fmt.Sprintf("Called with client: %s", client))
 	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	optPlan := plan.OptimisationPlan{}
 
@@ -68,7 +69,7 @@ func (s *Service) handlePlanMessage(client mqtt.MqttClient, msg pahoMQTT.Message
 	}
 }
 
-func (s *Service) runMQTT(ctx context.Context) error {
+func (s *Service) runMQTT() error {
 	if token := s.client.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -122,7 +123,7 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.runMQTT(ctx); err != nil {
+	if err := s.runMQTT(); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
 	go s.runDetector(ctx)

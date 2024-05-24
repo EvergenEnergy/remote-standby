@@ -11,8 +11,8 @@ type ClientWrapper struct {
 	client pahoMQTT.Client
 }
 
-func (c *ClientWrapper) Subscribe(topic string, qos byte, handler MqttMessageHandler) MqttToken {
-	return c.client.Subscribe(topic, qos, handler.(pahoMQTT.MessageHandler))
+func (c *ClientWrapper) Subscribe(topic string, qos byte, handler pahoMQTT.MessageHandler) MqttToken {
+	return c.client.Subscribe(topic, qos, handler)
 }
 
 func (c *ClientWrapper) Connect() MqttToken {

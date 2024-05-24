@@ -2,6 +2,8 @@ package mqtt
 
 import (
 	"time"
+
+	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 type MockToken struct{}
@@ -28,7 +30,7 @@ type MockClient struct {
 	SubscribedTopics []string
 }
 
-func (m *MockClient) Subscribe(topic string, qos byte, handler MqttMessageHandler) MqttToken {
+func (m *MockClient) Subscribe(topic string, qos byte, handler pahoMQTT.MessageHandler) MqttToken {
 	m.SubscribedTopics = append(m.SubscribedTopics, topic)
 	token := &MockToken{}
 	return &TokenWrapper{token: token}

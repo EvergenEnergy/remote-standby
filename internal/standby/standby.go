@@ -53,7 +53,7 @@ func (s *Service) handleCommandMessage(client mqtt.Client, msg mqtt.Message) {
 }
 
 func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
-	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+	s.logger.Debug(fmt.Sprintf("Received plan in message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	optPlan := plan.OptimisationPlan{}
 
 	err := json.Unmarshal(msg.Payload(), &optPlan)
@@ -67,7 +67,7 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 	}
 }
 
-func (s *Service) runMQTT(ctx context.Context) error {
+func (s *Service) runMQTT() error {
 	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
@@ -121,7 +121,7 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 }
 
 func (s *Service) Start(ctx context.Context) error {
-	if err := s.runMQTT(ctx); err != nil {
+	if err := s.runMQTT(); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
 	go s.runDetector(ctx)

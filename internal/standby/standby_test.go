@@ -40,14 +40,12 @@ func TestSubscribesToTopics(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	svc := standby.NewService(testLogger, cfg, storageSvc, &mqttClient)
 
-	t.Log("about to run runmqtt")
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 
 	err := svc.Start(ctx)
-	t.Log("started runmqtt")
 	assert.NoError(t, err)
-	time.Sleep(time.Second)
+	t.Log(mqttClient.SubscribedTopics)
 	assert.EqualValues(t, mqttClient.SubscribedTopics, []string{cfg.MQTT.StandbyTopic, cfg.MQTT.ReadCommandTopic})
 	svc.Stop()
 }

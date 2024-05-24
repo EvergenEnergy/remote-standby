@@ -3,8 +3,10 @@ package standby_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -13,6 +15,7 @@ import (
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
+	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -26,6 +29,7 @@ func getTestConfig() config.Config {
 		MQTT: config.MQTTConfig{
 			BrokerURL:        "tcp://localhost:1883",
 			StandbyTopic:     "cmd/site/standby/serial/plan",
+			ErrorTopic:       "cmd/site/error/serial/error",
 			ReadCommandTopic: "cmd/site/handler/serial/cloud",
 		},
 		Standby: config.StandbyConfig{
@@ -60,6 +64,47 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 
 	timestampAfterCommand := storageSvc.GetCommandTimestamp()
 	assert.True(t, timestampAfterCommand.After(timestampBeforeCommand))
+}
+
+func TestPublishesError_Integration(t *testing.T) {
+	if testing.Short() {
+		t.Skip("Skipping integration test in short mode.")
+	}
+
+	isErrorPublished := false
+	mu := new(sync.Mutex)
+
+	getErr := func() bool {
+		mu.Lock()
+		defer mu.Unlock()
+		return isErrorPublished
+	}
+	setErr := func(errFlag bool) {
+		mu.Lock()
+		defer mu.Unlock()
+		isErrorPublished = errFlag
+	}
+
+	cfg := getTestConfig()
+	mqttClient := mqtt.NewClient(cfg)
+	storageSvc := storage.NewService(testLogger)
+	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
+	defer cancel()
+	err := svc.Start(ctx)
+	assert.NoError(t, err)
+
+	errTopic := fmt.Sprintf("%s/%s", cfg.MQTT.ErrorTopic, "Standby")
+	mqttClient.Subscribe(errTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
+		setErr(true)
+	})
+
+	encPayload, _ := json.Marshal(map[string]interface{}{"not": "an", "optimisation": "plan"})
+	mqttClient.Publish(cfg.MQTT.StandbyTopic, 1, false, encPayload)
+	time.Sleep(time.Second)
+
+	assert.True(t, getErr())
 }
 
 var optPlan = plan.OptimisationPlan{

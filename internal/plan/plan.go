@@ -3,6 +3,7 @@ package plan
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os"
 )
 
@@ -37,6 +38,10 @@ type OptimisationIntervalTimestamp struct {
 type OptimisationValue struct {
 	Value float32 `json:"value"`
 	Unit  int     `json:"unit"`
+}
+
+func (o OptimisationPlan) IsEmpty(logger *slog.Logger) bool {
+	return o.SiteID == "" && len(o.OptimisationIntervals) == 0 && o.OptimisationTimestamp.Seconds == 0
 }
 
 func NewHandler(path string) PlanHandler {

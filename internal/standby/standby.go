@@ -54,14 +54,17 @@ func (s *Service) handleCommandMessage(client pahoMQTT.Client, msg pahoMQTT.Mess
 }
 
 func (s *Service) handlePlanMessage(client pahoMQTT.Client, msg pahoMQTT.Message) {
-	s.logger.Debug(fmt.Sprintf("Called with client: %s", client))
-	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+	s.logger.Debug(fmt.Sprintf("Received plan in message: %s from topic: %s", msg.Payload(), msg.Topic()))
 	optPlan := plan.OptimisationPlan{}
 
 	err := json.Unmarshal(msg.Payload(), &optPlan)
+	if err == nil && optPlan.IsEmpty(s.logger) {
+		err = fmt.Errorf("optimisation plan is empty")
+	}
 	if err != nil {
 		s.publishError("reading optimisation plan", err)
 	}
+
 	handler := plan.NewHandler(s.cfg.Standby.BackupFile)
 	err = handler.WritePlan(optPlan)
 	if err != nil {

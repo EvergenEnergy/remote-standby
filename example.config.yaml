@@ -8,3 +8,5 @@ mqtt:
   error_topic: "dt/${SITE_NAME}/error/${SERIAL_NUMBER}"
 standby:
   backup_file: "plan.json"
+  check_interval: "60s"
+  outage_threshold: "180s"

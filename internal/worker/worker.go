@@ -24,7 +24,7 @@ func NewWorker(logger *slog.Logger, cfg config.Config, standby *standby.Service)
 }
 
 func (w *Worker) Start(ctx context.Context) error {
-	err := w.standbySvc.RunMQTT(ctx)
+	err := w.standbySvc.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("running standby service: %w", err)
 	}
@@ -32,6 +32,6 @@ func (w *Worker) Start(ctx context.Context) error {
 }
 
 func (w *Worker) Stop() error {
-	w.standbySvc.StopMQTT()
+	w.standbySvc.Stop()
 	return nil
 }

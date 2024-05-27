@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/cristalhq/aconfig"
 	"github.com/cristalhq/aconfig/aconfigyaml"
@@ -33,7 +34,9 @@ type MQTTConfig struct {
 }
 
 type StandbyConfig struct {
-	BackupFile string `yaml:"backup_file" default:"plan.json"`
+	BackupFile      string        `yaml:"backup_file" default:"plan.json"`
+	CheckInterval   time.Duration `yaml:"check_interval" default:"60s"`
+	OutageThreshold time.Duration `yaml:"outage_threshold" default:"180s"`
 }
 
 func fromEnv() (Config, error) {

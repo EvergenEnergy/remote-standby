@@ -30,9 +30,10 @@ test.integration.setup: test-prep
 	echo "dependencies started"
 
 test.unit.run:
-	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=covprofile -race -short -v ./...
+	gotestsum --junitfile test-reports/junit.xml -- -timeout 1m -count=1 -coverprofile=covprofile.unit -race -short -v ./...
 
 test.integration.run:
+	gotestsum -- -count=1 -coverprofile=covprofile.int -failfast -race -run Integration -v ./...
 	./tests/integration/end-to-end-tests.sh
 
 test.all.run:

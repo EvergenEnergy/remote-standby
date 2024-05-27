@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	internalMQTT "github.com/EvergenEnergy/remote-standby/internal/mqtt"
+	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
 	"github.com/EvergenEnergy/remote-standby/internal/worker"
@@ -37,7 +38,8 @@ func main() {
 
 	mqttClient := internalMQTT.NewClient(cfg)
 	storageService := storage.NewService(logger)
-	standbyService := standby.NewService(logger, cfg, storageService, mqttClient)
+	publisher := publisher.NewService(logger, cfg, mqttClient)
+	standbyService := standby.NewService(logger, cfg, storageService, publisher, mqttClient)
 	standbyWorker := worker.NewWorker(logger, cfg, standbyService)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Interrupt)

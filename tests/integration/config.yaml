@@ -2,8 +2,10 @@ logging:
   level: debug
 mqtt:
   broker_url: "tcp://mosquitto:1883"
-  write_command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"
-  read_command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/#"
+  read_command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/cloud"
+  write_command_topic: "cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/standby"
   standby_topic: "cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/plan"
+  error_topic: "dt/${SITE_NAME}/error/${SERIAL_NUMBER}"
+  command_action: "STORAGE_POINT"
 standby:
   backup_file: "/command-standby/backup/plan.json"

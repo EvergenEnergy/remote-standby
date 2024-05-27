@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 )
 
 type PlanHandler struct {
-	Path string `required:"True"`
+	logger *slog.Logger
+	mu     *sync.Mutex
+	Path   string `required:"True"`
 }
 
 type OptimisationPlan struct {
@@ -44,8 +48,8 @@ func (o OptimisationPlan) IsEmpty(logger *slog.Logger) bool {
 	return o.SiteID == "" && len(o.OptimisationIntervals) == 0 && o.OptimisationTimestamp.Seconds == 0
 }
 
-func NewHandler(path string) PlanHandler {
-	return PlanHandler{Path: path}
+func NewHandler(logger *slog.Logger, path string) PlanHandler {
+	return PlanHandler{logger: logger, mu: new(sync.Mutex), Path: path}
 }
 
 func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
@@ -63,10 +67,14 @@ func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
 }
 
 func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
 	f, err := os.Create(p.Path)
 	if err != nil {
 		return fmt.Errorf("creating plan backup file at %s: %w", p.Path, err)
 	}
+	defer f.Close()
 
 	encodedPlan, err := json.Marshal(optPlan)
 	if err != nil {
@@ -79,4 +87,39 @@ func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
 	}
 
 	return nil
+}
+
+func (p PlanHandler) TrimPlan(targetTime time.Time) error {
+	plan, err := p.ReadPlan()
+	if err != nil {
+		return fmt.Errorf("reading current plan: %w", err)
+	}
+
+	newIntervals := []OptimisationInterval{}
+	for i, intv := range plan.OptimisationIntervals {
+		if time.Unix(intv.Interval.StartTime.Seconds, 0).Compare(targetTime) >= 0 {
+			newIntervals = append(newIntervals, plan.OptimisationIntervals[i:]...)
+			break
+		}
+	}
+	plan.OptimisationIntervals = newIntervals
+	err = p.WritePlan(plan)
+	if err != nil {
+		return fmt.Errorf("writing plan: %w", err)
+	}
+
+	return nil
+}
+
+func (p PlanHandler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval, error) {
+	plan, err := p.ReadPlan()
+	if err != nil {
+		return OptimisationInterval{}, fmt.Errorf("reading current plan: %w", err)
+	}
+	for _, intv := range plan.OptimisationIntervals {
+		if time.Unix(intv.Interval.StartTime.Seconds, 0).Compare(targetTime) >= 0 {
+			return intv, nil
+		}
+	}
+	return OptimisationInterval{}, fmt.Errorf("no current interval found in plan")
 }

@@ -136,7 +136,7 @@ func getOptPlan() plan.OptimisationPlan {
 	}
 }
 
-func TestStoresAPlan_Integration(t *testing.T) {
+func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode.")
 	}
@@ -169,9 +169,9 @@ func TestStoresAPlan_Integration(t *testing.T) {
 		setMsg(msg)
 	})
 
-	// Set the first interval in the optimisation plan to be 10 seconds from now, and publish it
+	// Set the first interval in the optimisation plan to start 10 seconds ago, and publish it
 	currentTime := time.Now()
-	targetTime := currentTime.Add(10 * time.Second)
+	targetTime := currentTime.Add(-10 * time.Second)
 	t.Log("Adjusting interval start time to ", "targetTime", targetTime)
 	optPlan := getOptPlan()
 	optPlan.OptimisationIntervals[0].Interval.StartTime.Seconds = targetTime.Unix()

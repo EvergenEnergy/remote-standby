@@ -44,8 +44,12 @@ type OptimisationValue struct {
 	Unit  int     `json:"unit"`
 }
 
-func (o OptimisationPlan) IsEmpty(logger *slog.Logger) bool {
+func (o OptimisationPlan) IsEmpty() bool {
 	return o.SiteID == "" && len(o.OptimisationIntervals) == 0 && o.OptimisationTimestamp.Seconds == 0
+}
+
+func (o OptimisationInterval) IsEmpty() bool {
+	return o.Interval.StartTime.Seconds == 0
 }
 
 func NewHandler(logger *slog.Logger, path string) PlanHandler {

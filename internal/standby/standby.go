@@ -62,7 +62,7 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 	optPlan := plan.OptimisationPlan{}
 
 	err := json.Unmarshal(msg.Payload(), &optPlan)
-	if err == nil && optPlan.IsEmpty(s.logger) {
+	if err == nil && optPlan.IsEmpty() {
 		err = fmt.Errorf("optimisation plan is empty")
 	}
 	if err != nil {

@@ -39,12 +39,12 @@ func GetOptimisationPlan() plan.OptimisationPlan {
 					EndTime:   plan.OptimisationTimestamp{Seconds: 1715319600},
 				},
 				BatteryPower: plan.OptimisationValue{
-					Value: 100,
+					Value: 110,
 					Unit:  2,
 				},
 				StateOfCharge: 0.55,
 				MeterPower: plan.OptimisationValue{
-					Value: 400,
+					Value: 390,
 					Unit:  2,
 				},
 			},
@@ -54,12 +54,12 @@ func GetOptimisationPlan() plan.OptimisationPlan {
 					EndTime:   plan.OptimisationTimestamp{Seconds: 1715319900},
 				},
 				BatteryPower: plan.OptimisationValue{
-					Value: 100,
+					Value: 120,
 					Unit:  2,
 				},
 				StateOfCharge: 0.55,
 				MeterPower: plan.OptimisationValue{
-					Value: 400,
+					Value: 380,
 					Unit:  2,
 				},
 			},
@@ -107,14 +107,53 @@ func TestRemoveExpiredIntervals(t *testing.T) {
 		err := handler.WritePlan(origPlan)
 		assert.NoError(t, err)
 
-		secondInterval := time.Unix(int64(tc.startTime), 0)
+		startTime := time.Unix(int64(tc.startTime), 0)
 
-		err = handler.TrimPlan(secondInterval)
+		err = handler.TrimPlan(startTime)
 		assert.NoError(t, err)
 
 		trimmedPlan, err := handler.ReadPlan()
 		assert.NoError(t, err)
 		assert.Len(t, trimmedPlan.OptimisationIntervals, tc.expectedNum)
+
+		os.Remove(planPath)
+	}
+}
+
+func TestGetCurrentInterval(t *testing.T) {
+	type test struct {
+		startTime          int
+		hasInterval        bool
+		expectedMeterPower int
+	}
+
+	tests := []test{
+		{startTime: 1715318999, hasInterval: true, expectedMeterPower: 400},
+		{startTime: 1715319300, hasInterval: true, expectedMeterPower: 390},
+		{startTime: 1715319901, hasInterval: false, expectedMeterPower: 0},
+	}
+
+	for i, tc := range tests {
+
+		planPath := fmt.Sprintf("/tmp/interval-plan-%d-%d.json", i, time.Now().Unix())
+
+		handler := plan.NewHandler(testLogger, planPath)
+
+		origPlan := GetOptimisationPlan()
+
+		err := handler.WritePlan(origPlan)
+		assert.NoError(t, err)
+
+		startTime := time.Unix(int64(tc.startTime), 0)
+
+		optInterval, err := handler.GetCurrentInterval(startTime)
+		assert.NotEqual(t, tc.hasInterval, optInterval.IsEmpty())
+		if tc.hasInterval {
+			assert.NoError(t, err)
+		} else {
+			assert.Error(t, err)
+		}
+		assert.EqualValues(t, optInterval.MeterPower.Value, tc.expectedMeterPower)
 
 		os.Remove(planPath)
 	}

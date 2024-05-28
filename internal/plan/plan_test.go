@@ -92,6 +92,7 @@ func TestRemoveExpiredIntervals(t *testing.T) {
 	tests := []test{
 		{startTime: 1715318999, expectedNum: 3},
 		{startTime: 1715319300, expectedNum: 2},
+		{startTime: 1715319899, expectedNum: 1},
 		{startTime: 1715319901, expectedNum: 0},
 	}
 
@@ -128,7 +129,8 @@ func TestGetCurrentInterval(t *testing.T) {
 	}
 
 	tests := []test{
-		{startTime: 1715318999, hasInterval: true, expectedMeterPower: 400},
+		{startTime: 1715318999, hasInterval: false, expectedMeterPower: 0},
+		{startTime: 1715319299, hasInterval: true, expectedMeterPower: 400},
 		{startTime: 1715319300, hasInterval: true, expectedMeterPower: 390},
 		{startTime: 1715319901, hasInterval: false, expectedMeterPower: 0},
 	}

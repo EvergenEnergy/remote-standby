@@ -48,8 +48,17 @@ func (o OptimisationPlan) IsEmpty() bool {
 	return o.SiteID == "" && len(o.OptimisationIntervals) == 0 && o.OptimisationTimestamp.Seconds == 0
 }
 
-func (o OptimisationInterval) IsEmpty() bool {
-	return o.Interval.StartTime.Seconds == 0
+func (i OptimisationInterval) IsEmpty() bool {
+	return i.Interval.StartTime.Seconds == 0
+}
+
+func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
+	intStart := time.Unix(i.Interval.StartTime.Seconds, 0)
+	intEnd := time.Unix(i.Interval.EndTime.Seconds, 0)
+
+	isAfterStart := targetTime.Equal(intStart) || targetTime.After(intStart)
+	isBeforeEnd := targetTime.Before(intEnd)
+	return isAfterStart && isBeforeEnd
 }
 
 func NewHandler(logger *slog.Logger, path string) PlanHandler {
@@ -99,9 +108,15 @@ func (p PlanHandler) TrimPlan(targetTime time.Time) error {
 		return fmt.Errorf("reading current plan: %w", err)
 	}
 
+	// If all intervals are in the future, exit without action
+	firstStart := plan.OptimisationIntervals[0].Interval
+	if firstStart.StartTime.Seconds > targetTime.Unix() {
+		return nil
+	}
+
 	newIntervals := []OptimisationInterval{}
 	for i, intv := range plan.OptimisationIntervals {
-		if time.Unix(intv.Interval.StartTime.Seconds, 0).Compare(targetTime) >= 0 {
+		if intv.IsCurrent(targetTime) {
 			newIntervals = append(newIntervals, plan.OptimisationIntervals[i:]...)
 			break
 		}
@@ -121,7 +136,7 @@ func (p PlanHandler) GetCurrentInterval(targetTime time.Time) (OptimisationInter
 		return OptimisationInterval{}, fmt.Errorf("reading current plan: %w", err)
 	}
 	for _, intv := range plan.OptimisationIntervals {
-		if time.Unix(intv.Interval.StartTime.Seconds, 0).Compare(targetTime) >= 0 {
+		if intv.IsCurrent(targetTime) {
 			return intv, nil
 		}
 	}

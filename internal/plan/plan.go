@@ -109,6 +109,9 @@ func (p PlanHandler) TrimPlan(targetTime time.Time) error {
 	}
 
 	// If all intervals are in the future, exit without action
+	if len(plan.OptimisationIntervals) == 0 {
+		return nil
+	}
 	firstStart := plan.OptimisationIntervals[0].Interval
 	if firstStart.StartTime.Seconds > targetTime.Unix() {
 		return nil

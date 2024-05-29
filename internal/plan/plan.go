@@ -11,7 +11,7 @@ import (
 
 type Handler struct {
 	logger *slog.Logger
-	mu     *sync.Mutex
+	mu     *sync.RWMutex
 	Path   string `required:"True"`
 }
 
@@ -62,7 +62,7 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 }
 
 func NewHandler(logger *slog.Logger, path string) Handler {
-	return Handler{logger: logger, mu: new(sync.Mutex), Path: path}
+	return Handler{logger: logger, mu: new(sync.RWMutex), Path: path}
 }
 
 func (p Handler) ReadPlan() (OptimisationPlan, error) {

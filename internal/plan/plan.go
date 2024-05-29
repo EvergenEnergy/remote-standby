@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-type PlanHandler struct {
+type Handler struct {
 	logger *slog.Logger
 	mu     *sync.Mutex
 	Path   string `required:"True"`
@@ -61,11 +61,11 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 	return isAfterStart && isBeforeEnd
 }
 
-func NewHandler(logger *slog.Logger, path string) PlanHandler {
-	return PlanHandler{logger: logger, mu: new(sync.Mutex), Path: path}
+func NewHandler(logger *slog.Logger, path string) Handler {
+	return Handler{logger: logger, mu: new(sync.Mutex), Path: path}
 }
 
-func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
+func (p Handler) ReadPlan() (OptimisationPlan, error) {
 	content, err := os.ReadFile(p.Path)
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)
@@ -79,7 +79,7 @@ func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
 	return optPlan, nil
 }
 
-func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
+func (p Handler) WritePlan(optPlan OptimisationPlan) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
@@ -102,38 +102,7 @@ func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
 	return nil
 }
 
-func (p PlanHandler) TrimPlan(targetTime time.Time) error {
-	plan, err := p.ReadPlan()
-	if err != nil {
-		return fmt.Errorf("reading current plan: %w", err)
-	}
-
-	// If all intervals are in the future, exit without action
-	if len(plan.OptimisationIntervals) == 0 {
-		return nil
-	}
-	firstStart := plan.OptimisationIntervals[0].Interval
-	if firstStart.StartTime.Seconds > targetTime.Unix() {
-		return nil
-	}
-
-	newIntervals := []OptimisationInterval{}
-	for i, intv := range plan.OptimisationIntervals {
-		if intv.IsCurrent(targetTime) {
-			newIntervals = append(newIntervals, plan.OptimisationIntervals[i:]...)
-			break
-		}
-	}
-	plan.OptimisationIntervals = newIntervals
-	err = p.WritePlan(plan)
-	if err != nil {
-		return fmt.Errorf("writing plan: %w", err)
-	}
-
-	return nil
-}
-
-func (p PlanHandler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval, error) {
+func (p Handler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval, error) {
 	plan, err := p.ReadPlan()
 	if err != nil {
 		return OptimisationInterval{}, fmt.Errorf("reading current plan: %w", err)

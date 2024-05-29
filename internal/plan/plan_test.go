@@ -83,44 +83,6 @@ func TestWritesAndReadsAPlan(t *testing.T) {
 	os.Remove(planPath)
 }
 
-func TestRemoveExpiredIntervals(t *testing.T) {
-	type test struct {
-		startTime   int
-		expectedNum int
-	}
-
-	tests := []test{
-		{startTime: 1715318999, expectedNum: 3},
-		{startTime: 1715319300, expectedNum: 2},
-		{startTime: 1715319899, expectedNum: 1},
-		{startTime: 1715319901, expectedNum: 0},
-	}
-
-	for i, tc := range tests {
-
-		planPath := fmt.Sprintf("/tmp/trim-plan-%d-%d.json", i, time.Now().Unix())
-
-		handler := plan.NewHandler(testLogger, planPath)
-
-		origPlan := GetOptimisationPlan()
-		assert.Len(t, origPlan.OptimisationIntervals, 3)
-
-		err := handler.WritePlan(origPlan)
-		assert.NoError(t, err)
-
-		startTime := time.Unix(int64(tc.startTime), 0)
-
-		err = handler.TrimPlan(startTime)
-		assert.NoError(t, err)
-
-		trimmedPlan, err := handler.ReadPlan()
-		assert.NoError(t, err)
-		assert.Len(t, trimmedPlan.OptimisationIntervals, tc.expectedNum)
-
-		os.Remove(planPath)
-	}
-}
-
 func TestGetCurrentInterval(t *testing.T) {
 	type test struct {
 		startTime          int

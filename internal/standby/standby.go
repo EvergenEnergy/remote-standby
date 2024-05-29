@@ -28,7 +28,7 @@ type Service struct {
 	mqttClient  mqtt.Client
 	storageSvc  *storage.Service
 	publisher   *publisher.Service
-	planHandler plan.PlanHandler
+	planHandler plan.Handler
 	mutex       *sync.Mutex
 	mode        ServiceMode
 }
@@ -69,8 +69,7 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 		s.publisher.PublishError("reading optimisation plan", err)
 	}
 
-	handler := plan.NewHandler(s.logger, s.cfg.Standby.BackupFile)
-	err = handler.WritePlan(optPlan)
+	err = s.planHandler.WritePlan(optPlan)
 	if err != nil {
 		s.publisher.PublishError("writing optimisation plan", err)
 	}
@@ -119,10 +118,6 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 			s.setMode(CommandMode)
 		} else {
 			s.logger.Debug("Ongoing outage", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
-			err := s.planHandler.TrimPlan(currentTime)
-			if err != nil {
-				s.publisher.PublishError("trimming the plan", err)
-			}
 		}
 		currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
 		if err != nil {

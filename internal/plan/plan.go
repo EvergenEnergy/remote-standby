@@ -66,6 +66,9 @@ func NewHandler(logger *slog.Logger, path string) Handler {
 }
 
 func (p Handler) ReadPlan() (OptimisationPlan, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
 	content, err := os.ReadFile(p.Path)
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)

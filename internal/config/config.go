@@ -2,12 +2,15 @@ package config
 
 import (
 	"fmt"
+	"log"
+	"log/slog"
 	"os"
 	"strings"
 	"time"
 
 	"github.com/cristalhq/aconfig"
 	"github.com/cristalhq/aconfig/aconfigyaml"
+	"gopkg.in/yaml.v2"
 )
 
 // Config holds all configurable values of the service.
@@ -78,9 +81,15 @@ func (cfg Config) NewFromFile() (Config, error) {
 		return Config{}, fmt.Errorf("no configuration path specified")
 	}
 
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	logger.Info("looking for config file", "path", cfg.ConfigurationPath)
 	if _, err := os.Stat(cfg.ConfigurationPath); os.IsNotExist(err) {
 		return Config{}, fmt.Errorf("file %s does not exist", cfg.ConfigurationPath)
 	}
+
+	logger.Info("path is ok")
+	// dumpYAML(cfg.ConfigurationPath)
 
 	loader := aconfig.LoaderFor(&fileCfg, aconfig.Config{
 		SkipFlags: true,
@@ -102,4 +111,50 @@ func (cfg *Config) InterpolateEnvVars() {
 	cfg.MQTT.WriteCommandTopic = replacer.Replace(cfg.MQTT.WriteCommandTopic)
 	cfg.MQTT.StandbyTopic = replacer.Replace(cfg.MQTT.StandbyTopic)
 	cfg.MQTT.ErrorTopic = replacer.Replace(cfg.MQTT.ErrorTopic)
+}
+
+func DumpYAML(filePath string) string {
+	// Read the YAML file
+	yamlFile, err := os.ReadFile(filePath)
+	if err != nil {
+		log.Fatalf("Error reading YAML file: %v", err)
+	}
+
+	// Declare a variable to hold the YAML content
+	var content interface{}
+
+	// Unmarshal the YAML content into the variable
+	err = yaml.Unmarshal(yamlFile, &content)
+	if err != nil {
+		log.Fatalf("Error unmarshaling YAML: %v", err)
+	}
+
+	// Print the YAML content
+	return printYAML(content, 0)
+}
+
+// printYAML is a helper function to print YAML content with indentation.
+func printYAML(content interface{}, indent int) string {
+	yamlstr := ""
+
+	switch v := content.(type) {
+	case map[interface{}]interface{}:
+		for key, value := range v {
+			yamlstr += fmt.Sprintf("%s%v:\n", indentString(indent), key)
+			yamlstr += printYAML(value, indent+2)
+		}
+	case []interface{}:
+		for _, value := range v {
+			yamlstr += fmt.Sprintf("%s- ", indentString(indent))
+			yamlstr += printYAML(value, indent+2)
+		}
+	default:
+		yamlstr += fmt.Sprintf("%s%v\n", indentString(indent), v)
+	}
+	return yamlstr
+}
+
+// indentString is a helper function to create an indentation string.
+func indentString(indent int) string {
+	return fmt.Sprintf("%*s", indent, "")
 }

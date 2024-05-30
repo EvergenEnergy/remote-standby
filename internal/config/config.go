@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -73,6 +74,14 @@ func FromFile() (Config, error) {
 func (cfg Config) NewFromFile() (Config, error) {
 	var fileCfg Config
 
+	if cfg.ConfigurationPath == "" {
+		return Config{}, fmt.Errorf("no configuration path specified")
+	}
+
+	if _, err := os.Stat(cfg.ConfigurationPath); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("file %s does not exist", cfg.ConfigurationPath)
+	}
+
 	loader := aconfig.LoaderFor(&fileCfg, aconfig.Config{
 		SkipFlags: true,
 		Files:     []string{cfg.ConfigurationPath},
@@ -83,6 +92,7 @@ func (cfg Config) NewFromFile() (Config, error) {
 	if err := loader.Load(); err != nil {
 		return Config{}, fmt.Errorf("unable to parse config: %w", err)
 	}
+
 	return fileCfg, nil
 }
 

@@ -34,14 +34,31 @@ func TestInterpolateVars(t *testing.T) {
 
 func TestReadFromFile(t *testing.T) {
 	cfg := config.Config{
-		SiteName:          "test",
-		SerialNumber:      "device",
-		ConfigurationPath: "tests/integration/config.yaml",
+		SiteName:     "test",
+		SerialNumber: "device",
 	}
 	fileCfg, err := cfg.NewFromFile()
+	assert.Empty(t, fileCfg)
+	assert.Error(t, err)
+
+	cfg = config.Config{
+		SiteName:          "test",
+		SerialNumber:      "device",
+		ConfigurationPath: "no/such/file",
+	}
+	fileCfg, err = cfg.NewFromFile()
+	assert.Empty(t, fileCfg)
+	assert.Error(t, err)
+
+	cfg = config.Config{
+		SiteName:          "test",
+		SerialNumber:      "device",
+		ConfigurationPath: "../../tests/integration/config.yaml",
+	}
+	fileCfg, err = cfg.NewFromFile()
 	assert.NotEmpty(t, fileCfg)
 	assert.NoError(t, err)
 
-	assert.Contains(t, fileCfg.MQTT.CommandAction, "SETPOINT")
-	assert.Contains(t, fileCfg.Standby.BackupFile, "plan.json")
+	assert.Contains(t, fileCfg.MQTT.CommandAction, "STORAGE_POINT")
+	assert.Contains(t, fileCfg.Standby.BackupFile, "/command-standby/backup/plan.json")
 }

@@ -12,7 +12,7 @@ import (
 type Handler struct {
 	logger *slog.Logger
 	mu     *sync.RWMutex
-	Path   string `required:"True"`
+	path   string
 }
 
 type OptimisationPlan struct {
@@ -62,14 +62,14 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 }
 
 func NewHandler(logger *slog.Logger, path string) Handler {
-	return Handler{logger: logger, mu: new(sync.RWMutex), Path: path}
+	return Handler{logger: logger, mu: new(sync.RWMutex), path: path}
 }
 
 func (p Handler) ReadPlan() (OptimisationPlan, error) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	content, err := os.ReadFile(p.Path)
+	content, err := os.ReadFile(p.path)
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)
 	}
@@ -86,9 +86,9 @@ func (p Handler) WritePlan(optPlan OptimisationPlan) error {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 
-	f, err := os.Create(p.Path)
+	f, err := os.Create(p.path)
 	if err != nil {
-		return fmt.Errorf("creating plan backup file at %s: %w", p.Path, err)
+		return fmt.Errorf("creating plan backup file at %s: %w", p.path, err)
 	}
 	defer f.Close()
 
@@ -99,7 +99,7 @@ func (p Handler) WritePlan(optPlan OptimisationPlan) error {
 
 	_, err = f.Write(encodedPlan)
 	if err != nil {
-		return fmt.Errorf("writing plan to file at %s: %w", p.Path, err)
+		return fmt.Errorf("writing plan to file at %s: %w", p.path, err)
 	}
 
 	return nil

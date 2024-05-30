@@ -36,21 +36,25 @@ type ErrorPayload struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
+const errorCategory = "Standby"
+
 func (s *Service) PublishError(message string, receivedError error) {
 	s.logger.Error(message, "error", receivedError)
 
 	payload := ErrorPayload{
-		Category:  "Standby",
+		Category:  errorCategory,
 		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
 		Timestamp: time.Now(),
 	}
 	encPayload, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("marshalling error payload", "error", err)
+		return
 	}
 
 	if s.cfg.MQTT.ErrorTopic == "" {
 		s.logger.Error("no error topic configured")
+		return
 	}
 	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
 

@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
+	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 )
@@ -22,22 +23,26 @@ const (
 )
 
 type Service struct {
-	logger     *slog.Logger
-	cfg        config.Config
-	mqttClient mqtt.Client
-	storageSvc *storage.Service
-	mutex      *sync.Mutex
-	mode       ServiceMode
+	logger      *slog.Logger
+	cfg         config.Config
+	mqttClient  mqtt.Client
+	storageSvc  *storage.Service
+	publisher   *publisher.Service
+	planHandler plan.Handler
+	mutex       *sync.Mutex
+	mode        ServiceMode
 }
 
-func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, mqttClient mqtt.Client) *Service {
+func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, publisher *publisher.Service, mqttClient mqtt.Client) *Service {
 	return &Service{
-		logger:     logger,
-		cfg:        cfg,
-		mqttClient: mqttClient,
-		storageSvc: storage,
-		mutex:      new(sync.Mutex),
-		mode:       StandbyMode,
+		logger:      logger,
+		cfg:         cfg,
+		mqttClient:  mqttClient,
+		storageSvc:  storage,
+		publisher:   publisher,
+		mutex:       new(sync.Mutex),
+		mode:        StandbyMode,
+		planHandler: plan.NewHandler(logger, cfg.Standby.BackupFile),
 	}
 }
 
@@ -48,7 +53,7 @@ func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
 }
 
 func (s *Service) handleCommandMessage(client mqtt.Client, msg mqtt.Message) {
-	s.logger.Debug(fmt.Sprintf("Received message: %s from topic: %s", msg.Payload(), msg.Topic()))
+	s.logger.Debug(fmt.Sprintf("Received command: %s from topic: %s", msg.Payload(), msg.Topic()))
 	s.storageSvc.SetCommandTimestamp(time.Now())
 }
 
@@ -57,17 +62,16 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 	optPlan := plan.OptimisationPlan{}
 
 	err := json.Unmarshal(msg.Payload(), &optPlan)
-	if err == nil && optPlan.IsEmpty(s.logger) {
+	if err == nil && optPlan.IsEmpty() {
 		err = fmt.Errorf("optimisation plan is empty")
 	}
 	if err != nil {
-		s.publishError("reading optimisation plan", err)
+		s.publisher.PublishError("reading optimisation plan", err)
 	}
 
-	handler := plan.NewHandler(s.cfg.Standby.BackupFile)
-	err = handler.WritePlan(optPlan)
+	err = s.planHandler.WritePlan(optPlan)
 	if err != nil {
-		s.publishError("writing optimisation plan", err)
+		s.publisher.PublishError("writing optimisation plan", err)
 	}
 }
 
@@ -107,7 +111,7 @@ func (s *Service) runDetector(ctx context.Context) {
 func (s *Service) CheckForOutage(currentTime time.Time) {
 	outageThreshold := s.cfg.Standby.OutageThreshold
 	timeSinceLastCmd := currentTime.Sub(s.storageSvc.GetCommandTimestamp())
-	s.logger.Debug("checking", "time since last command", timeSinceLastCmd)
+	s.logger.Debug("checking", "time since last command", timeSinceLastCmd, "current mode", s.getMode(), "currentTime", currentTime)
 	if timeSinceLastCmd > outageThreshold {
 		if s.InStandbyMode() {
 			s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
@@ -115,7 +119,15 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 		} else {
 			s.logger.Debug("Ongoing outage", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 		}
-		// TODO: Trigger a process to identify closest optimisation command from plan and send it
+		currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
+		if err != nil {
+			s.publisher.PublishError("getting current command", err)
+			return
+		}
+		err = s.publisher.PublishCommand(currentInterval)
+		if err != nil {
+			s.publisher.PublishError("publishing current command", err)
+		}
 	} else {
 		if s.InCommandMode() {
 			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
@@ -134,30 +146,6 @@ func (s *Service) Start(ctx context.Context) error {
 
 func (s *Service) Stop() {
 	s.stopMQTT()
-}
-
-type ErrorPayload struct {
-	Category  string    `json:"category"`
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
-}
-
-func (s *Service) publishError(message string, receivedError error) {
-	s.logger.Error(message, "error", receivedError)
-
-	payload := ErrorPayload{
-		Category:  "Standby",
-		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
-		Timestamp: time.Now(),
-	}
-	encPayload, err := json.Marshal(payload)
-	if err != nil {
-		s.logger.Error("marshalling error payload", "error", err)
-	}
-
-	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
-
-	s.mqttClient.Publish(errTopic, 1, false, encPayload)
 }
 
 func (s *Service) setMode(newMode ServiceMode) {

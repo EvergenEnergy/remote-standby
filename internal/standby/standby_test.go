@@ -13,6 +13,7 @@ import (
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	mqtt "github.com/EvergenEnergy/remote-standby/internal/mqtt"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
+	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
 	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
@@ -27,10 +28,12 @@ var (
 func getTestConfig() config.Config {
 	return config.Config{
 		MQTT: config.MQTTConfig{
-			BrokerURL:        "tcp://localhost:1883",
-			StandbyTopic:     "cmd/site/standby/serial/plan",
-			ErrorTopic:       "cmd/site/error/serial/error",
-			ReadCommandTopic: "cmd/site/handler/serial/cloud",
+			BrokerURL:         "tcp://localhost:1883",
+			StandbyTopic:      "cmd/site/standby/serial/plan",
+			ErrorTopic:        "cmd/site/error/serial/error",
+			ReadCommandTopic:  "cmd/site/handler/serial/cloud",
+			WriteCommandTopic: "cmd/site/handler/serial/standby",
+			CommandAction:     "STORAGEPOINT",
 		},
 		Standby: config.StandbyConfig{
 			CheckInterval:   time.Duration(1 * time.Second),
@@ -47,7 +50,8 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	cfg := getTestConfig()
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
-	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
+	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -88,7 +92,8 @@ func TestPublishesError_Integration(t *testing.T) {
 	cfg := getTestConfig()
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
-	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
+	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -107,49 +112,88 @@ func TestPublishesError_Integration(t *testing.T) {
 	assert.True(t, getErr())
 }
 
-var optPlan = plan.OptimisationPlan{
-	SiteID:       "test-site",
-	SetpointType: 1,
-	OptimisationIntervals: []plan.OptimisationInterval{
-		{
-			Interval: plan.OptimisationIntervalTimestamp{
-				StartTime: plan.OptimisationTimestamp{Seconds: 1715319000},
-				EndTime:   plan.OptimisationTimestamp{Seconds: 1715319900},
-			},
-			BatteryPower: plan.OptimisationValue{
-				Value: 100,
-				Unit:  2,
-			},
-			StateOfCharge: 0.55,
-			MeterPower: plan.OptimisationValue{
-				Value: 400,
-				Unit:  2,
+func getOptPlan() plan.OptimisationPlan {
+	return plan.OptimisationPlan{
+		SiteID:       "test-site",
+		SetpointType: 1,
+		OptimisationIntervals: []plan.OptimisationInterval{
+			{
+				Interval: plan.OptimisationIntervalTimestamp{
+					StartTime: plan.OptimisationTimestamp{Seconds: 1715319000},
+					EndTime:   plan.OptimisationTimestamp{Seconds: 1715319900},
+				},
+				BatteryPower: plan.OptimisationValue{
+					Value: 100,
+					Unit:  2,
+				},
+				StateOfCharge: 0.55,
+				MeterPower: plan.OptimisationValue{
+					Value: 400,
+					Unit:  2,
+				},
 			},
 		},
-	},
+	}
 }
 
-func TestStoresAPlan_Integration(t *testing.T) {
+func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode.")
 	}
+	var commandMsg pahoMQTT.Message
+	mu := new(sync.Mutex)
+
+	getMsg := func() pahoMQTT.Message {
+		mu.Lock()
+		defer mu.Unlock()
+		return commandMsg
+	}
+	setMsg := func(msg pahoMQTT.Message) {
+		mu.Lock()
+		defer mu.Unlock()
+		commandMsg = msg
+	}
+
 	cfg := getTestConfig()
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
-	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
+	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	err := svc.Start(ctx)
 	assert.NoError(t, err)
 
+	mqttClient.Subscribe(cfg.MQTT.WriteCommandTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
+		setMsg(msg)
+	})
+
+	// Set the first interval in the optimisation plan to start 10 seconds ago, and publish it
+	currentTime := time.Now()
+	targetTime := currentTime.Add(-10 * time.Second)
+	t.Log("Adjusting interval start time to ", "targetTime", targetTime)
+	optPlan := getOptPlan()
+	optPlan.OptimisationIntervals[0].Interval.StartTime.Seconds = targetTime.Unix()
+	optPlan.OptimisationIntervals[0].Interval.EndTime.Seconds = targetTime.Add(300 * time.Second).Unix()
+
 	encPayload, _ := json.Marshal(optPlan)
 	token := mqttClient.Publish(cfg.MQTT.StandbyTopic, 1, false, encPayload)
 	token.Wait()
-	time.Sleep(time.Second)
 
-	// TODO once plan replay is implemented, add asserts to indicate we've read the plan
+	// wait for the service to detect an outage and send a replacement command
+	time.Sleep(4 * time.Second)
 	svc.Stop()
+
+	subscribedMsg := getMsg()
+	assert.NotEmpty(t, subscribedMsg)
+
+	msg := publisher.CommandPayload{}
+	err = json.Unmarshal(subscribedMsg.Payload(), &msg)
+	assert.NoError(t, err)
+
+	assert.EqualValues(t, cfg.MQTT.CommandAction, msg.Action)
+	assert.EqualValues(t, optPlan.OptimisationIntervals[0].MeterPower.Value, msg.Value)
 }
 
 func TestDetectsOutage_Integration(t *testing.T) {
@@ -160,7 +204,8 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	cfg := getTestConfig()
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
-	svc := standby.NewService(testLogger, cfg, storageSvc, mqttClient)
+	publisher := publisher.NewService(testLogger, cfg, mqttClient)
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisher, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
@@ -182,11 +227,11 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	svc.CheckForOutage(time.Now())
 	assert.True(t, svc.InCommandMode())
 
-	encPayload, _ := json.Marshal(map[string]interface{}{"action": "test", "value": 23})
+	encPayload, _ := json.Marshal(map[string]interface{}{"action": "fromTest", "value": 23})
 	token := mqttClient.Publish(cfg.MQTT.ReadCommandTopic, 1, false, encPayload)
 	token.Wait()
+	testLogger.Info("Test published new cloud cmd to", "topic", cfg.MQTT.ReadCommandTopic)
 	time.Sleep(time.Second)
-	testLogger.Info("published to", "topic", cfg.MQTT.ReadCommandTopic)
 
 	// After 4 seconds, new command received, resume standby mode
 	svc.CheckForOutage(time.Now())

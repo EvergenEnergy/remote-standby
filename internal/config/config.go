@@ -10,8 +10,9 @@ import (
 )
 
 // Config holds all configurable values of the service.
-// It can contain values specified either in the environment or by file,
-// but file-based values cannot be required.
+// It can contain values specified either in the environment or by file.
+// File-based values are loaded in a two-step process, after env vars,
+// so they cannot be configured with required:true
 type Config struct {
 	SiteName          string        `env:"SITE_NAME" required:"true"`
 	SerialNumber      string        `env:"SERIAL_NUMBER" required:"true"`
@@ -31,6 +32,7 @@ type MQTTConfig struct {
 	ReadCommandTopic  string `yaml:"read_command_topic" default:"cmd/${SITE_NAME}/handler/${SERIAL_NUMBER}/cloud"`
 	StandbyTopic      string `yaml:"standby_topic" default:"cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#"`
 	ErrorTopic        string `yaml:"error_topic" default:"dt/${SITE_NAME}/error/${SERIAL_NUMBER}"`
+	CommandAction     string `yaml:"command_action" default:"SETPOINT"`
 }
 
 type StandbyConfig struct {

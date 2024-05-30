@@ -5,10 +5,14 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"sync"
+	"time"
 )
 
-type PlanHandler struct {
-	Path string `required:"True"`
+type Handler struct {
+	logger *slog.Logger
+	mu     *sync.RWMutex
+	path   string
 }
 
 type OptimisationPlan struct {
@@ -40,16 +44,32 @@ type OptimisationValue struct {
 	Unit  int     `json:"unit"`
 }
 
-func (o OptimisationPlan) IsEmpty(logger *slog.Logger) bool {
+func (o OptimisationPlan) IsEmpty() bool {
 	return o.SiteID == "" && len(o.OptimisationIntervals) == 0 && o.OptimisationTimestamp.Seconds == 0
 }
 
-func NewHandler(path string) PlanHandler {
-	return PlanHandler{Path: path}
+func (i OptimisationInterval) IsEmpty() bool {
+	return i.Interval.StartTime.Seconds == 0
 }
 
-func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
-	content, err := os.ReadFile(p.Path)
+func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
+	intStart := time.Unix(i.Interval.StartTime.Seconds, 0)
+	intEnd := time.Unix(i.Interval.EndTime.Seconds, 0)
+
+	isAfterStart := targetTime.Equal(intStart) || targetTime.After(intStart)
+	isBeforeEnd := targetTime.Before(intEnd)
+	return isAfterStart && isBeforeEnd
+}
+
+func NewHandler(logger *slog.Logger, path string) Handler {
+	return Handler{logger: logger, mu: new(sync.RWMutex), path: path}
+}
+
+func (p Handler) ReadPlan() (OptimisationPlan, error) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+
+	content, err := os.ReadFile(p.path)
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)
 	}
@@ -62,11 +82,15 @@ func (p PlanHandler) ReadPlan() (OptimisationPlan, error) {
 	return optPlan, nil
 }
 
-func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
-	f, err := os.Create(p.Path)
+func (p Handler) WritePlan(optPlan OptimisationPlan) error {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+
+	f, err := os.Create(p.path)
 	if err != nil {
-		return fmt.Errorf("creating plan backup file at %s: %w", p.Path, err)
+		return fmt.Errorf("creating plan backup file at %s: %w", p.path, err)
 	}
+	defer f.Close()
 
 	encodedPlan, err := json.Marshal(optPlan)
 	if err != nil {
@@ -75,8 +99,21 @@ func (p PlanHandler) WritePlan(optPlan OptimisationPlan) error {
 
 	_, err = f.Write(encodedPlan)
 	if err != nil {
-		return fmt.Errorf("writing plan to file at %s: %w", p.Path, err)
+		return fmt.Errorf("writing plan to file at %s: %w", p.path, err)
 	}
 
 	return nil
+}
+
+func (p Handler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval, error) {
+	plan, err := p.ReadPlan()
+	if err != nil {
+		return OptimisationInterval{}, fmt.Errorf("reading current plan: %w", err)
+	}
+	for _, intv := range plan.OptimisationIntervals {
+		if intv.IsCurrent(targetTime) {
+			return intv, nil
+		}
+	}
+	return OptimisationInterval{}, fmt.Errorf("no current interval found in plan")
 }

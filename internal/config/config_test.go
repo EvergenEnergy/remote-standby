@@ -59,7 +59,6 @@ func TestReadFromFile(t *testing.T) {
 
 	assert.NotEmpty(t, fileCfg)
 	assert.NoError(t, err)
-	assert.True(t, false)
 
 	assert.Contains(t, fileCfg.MQTT.CommandAction, "STORAGE_POINT")
 	assert.Contains(t, fileCfg.Standby.BackupFile, "/command-standby/backup/plan.json")

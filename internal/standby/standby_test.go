@@ -211,16 +211,16 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	defer cancel()
 	err := svc.Start(ctx)
 	assert.NoError(t, err)
-	time.Sleep(1 * time.Second)
 
 	// First check after 1 second, remain in standby
+	time.Sleep(1 * time.Second)
 	assert.True(t, svc.InStandbyMode())
 
-	// After 2 seconds, command timestamp exceeds threshold, switch to command mode
-	time.Sleep(time.Second)
+	// After 3 seconds, command timestamp exceeds threshold, switch to command mode
+	time.Sleep(2 * time.Second)
 	assert.True(t, svc.InCommandMode())
 
-	// After 3 seconds, command timestamp still exceeds threshold, remain in command mode
+	// After 4 seconds, command timestamp still exceeds threshold, remain in command mode
 	time.Sleep(time.Second)
 	assert.True(t, svc.InCommandMode())
 
@@ -228,9 +228,9 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	token := mqttClient.Publish(cfg.MQTT.ReadCommandTopic, 1, false, encPayload)
 	token.Wait()
 	testLogger.Info("Test published new cloud cmd to", "topic", cfg.MQTT.ReadCommandTopic)
-	time.Sleep(time.Second)
 
-	// After 4 seconds, new command received, resume standby mode
+	// After 5 seconds, new command received, resume standby mode
+	time.Sleep(time.Second)
 	assert.True(t, svc.InStandbyMode())
 
 	svc.Stop()

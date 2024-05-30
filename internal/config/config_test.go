@@ -4,8 +4,8 @@ import (
 	"testing"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
-
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func getTestConfig() config.Config {
@@ -32,34 +32,46 @@ func TestInterpolateVars(t *testing.T) {
 	assert.EqualValues(t, cfg.MQTT.StandbyTopic, "cmd/test/standby/device/#")
 }
 
-func TestReadFromFile(t *testing.T) {
-	cfgNoPath := config.Config{
-		SiteName:     "test",
-		SerialNumber: "device",
-	}
-	_, err := cfgNoPath.NewFromFile()
-	assert.Error(t, err)
+func TestReadFromFile_WhenConfigFilePathExists_ReadsConfig(t *testing.T) {
+	testPath := "../../tests/integration/config.yaml"
+	require.FileExists(t, testPath)
 
-	cfgBadPath := config.Config{
-		SiteName:          "test",
-		SerialNumber:      "device",
-		ConfigurationPath: "no/such/file",
-	}
-	_, err = cfgBadPath.NewFromFile()
-	assert.Error(t, err)
+	t.Log(config.DumpYAML("../../tests/integration/config.yaml"))
 
 	cfgGoodPath := config.Config{
 		SiteName:          "test",
 		SerialNumber:      "device",
-		ConfigurationPath: "../../tests/integration/config.yaml",
+		ConfigurationPath: testPath,
 	}
-	t.Log(config.DumpYAML("../../tests/integration/config.yaml"))
-	fileCfg, err := cfgGoodPath.NewFromFile()
-	t.Log("file config has site name ", fileCfg.SiteName)
 
-	assert.NotEmpty(t, fileCfg)
-	assert.NoError(t, err)
+	got, err := cfgGoodPath.NewFromFile()
+	require.NoError(t, err)
 
-	assert.Contains(t, fileCfg.MQTT.CommandAction, "STORAGE_POINT")
-	assert.Contains(t, fileCfg.Standby.BackupFile, "/command-standby/backup/plan.json")
+	assert.NotEmpty(t, got)
+	assert.Equal(t, got.MQTT.CommandAction, "STORAGE_POINT")
+	assert.Equal(t, got.Standby.BackupFile, "/command-standby/backup/plan.json")
+}
+
+func TestReadFromFile_WhenConfigFilePathIsNonexistent_ReturnsError(t *testing.T) {
+	testPath := "no/such/file"
+	require.NoFileExists(t, testPath)
+
+	cfgBadPath := config.Config{
+		SiteName:          "test",
+		SerialNumber:      "device",
+		ConfigurationPath: testPath,
+	}
+
+	_, err := cfgBadPath.NewFromFile()
+	assert.Error(t, err)
+}
+
+func TestReadFromFile_WhenConfigFilePathIsAbsent_ReturnsError(t *testing.T) {
+	cfgNoPath := config.Config{
+		SiteName:     "test",
+		SerialNumber: "device",
+	}
+
+	_, err := cfgNoPath.NewFromFile()
+	assert.Error(t, err)
 }

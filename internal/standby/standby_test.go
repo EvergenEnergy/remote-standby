@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
-	mqtt "github.com/EvergenEnergy/remote-standby/internal/mqtt"
+	"github.com/EvergenEnergy/remote-standby/internal/mqtt"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"

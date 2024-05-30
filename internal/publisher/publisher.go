@@ -46,6 +46,7 @@ func (s *Service) PublishError(message string, receivedError error) {
 		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
 		Timestamp: time.Now(),
 	}
+
 	encPayload, err := json.Marshal(payload)
 	if err != nil {
 		s.logger.Error("marshalling error payload", "error", err)
@@ -56,6 +57,7 @@ func (s *Service) PublishError(message string, receivedError error) {
 		s.logger.Error("no error topic configured")
 		return
 	}
+
 	errTopic := fmt.Sprintf("%s/%s", s.cfg.MQTT.ErrorTopic, payload.Category)
 
 	s.mqttClient.Publish(errTopic, 1, false, encPayload)
@@ -67,6 +69,7 @@ func (s *Service) PublishCommand(optInterval plan.OptimisationInterval) error {
 	}
 
 	payload := BuildCommandPayload(s.cfg.MQTT.CommandAction, optInterval)
+
 	encPayload, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("marshalling command payload: %w", err)
@@ -81,6 +84,7 @@ func BuildCommandPayload(action string, optInterval plan.OptimisationInterval) C
 	meterUnit := optInterval.MeterPower.Unit
 
 	var publishMeterValue float64
+
 	switch {
 	case meterUnit == 1:
 		publishMeterValue = meterValue / 1000
@@ -89,6 +93,7 @@ func BuildCommandPayload(action string, optInterval plan.OptimisationInterval) C
 	case meterUnit == 3:
 		publishMeterValue = meterValue * 1000
 	}
+
 	return CommandPayload{
 		Action: action,
 		Value:  publishMeterValue,

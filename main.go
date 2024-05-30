@@ -53,5 +53,6 @@ func main() {
 	}()
 
 	<-ctx.Done()
+
 	_ = standbyWorker.Stop()
 }

@@ -12,7 +12,7 @@ import (
 // Config holds all configurable values of the service.
 // It can contain values specified either in the environment or by file.
 // File-based values are loaded in a two-step process, after env vars,
-// so they cannot be configured with required:true
+// so they cannot be configured with required:true.
 type Config struct {
 	SiteName          string        `env:"SITE_NAME" required:"true"`
 	SerialNumber      string        `env:"SERIAL_NUMBER" required:"true"`

@@ -52,13 +52,14 @@ func (s *Service) subscribeToTopic(topic string, handler mqtt.MessageHandler) {
 	s.logger.Debug("Subscribed to topic " + topic)
 }
 
-func (s *Service) handleCommandMessage(client mqtt.Client, msg mqtt.Message) {
+func (s *Service) handleCommandMessage(_ mqtt.Client, msg mqtt.Message) {
 	s.logger.Debug(fmt.Sprintf("Received command: %s from topic: %s", msg.Payload(), msg.Topic()))
 	s.storageSvc.SetCommandTimestamp(time.Now())
 }
 
-func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
+func (s *Service) handlePlanMessage(_ mqtt.Client, msg mqtt.Message) {
 	s.logger.Debug(fmt.Sprintf("Received plan in message: %s from topic: %s", msg.Payload(), msg.Topic()))
+
 	optPlan := plan.OptimisationPlan{}
 
 	err := json.Unmarshal(msg.Payload(), &optPlan)
@@ -77,7 +78,7 @@ func (s *Service) handlePlanMessage(client mqtt.Client, msg mqtt.Message) {
 
 func (s *Service) runMQTT() error {
 	if token := s.mqttClient.Connect(); token.Wait() && token.Error() != nil {
-		return token.Error()
+		return fmt.Errorf("mqtt token: %w", token.Error())
 	}
 
 	s.subscribeToTopic(s.cfg.MQTT.StandbyTopic, s.handlePlanMessage)
@@ -94,6 +95,7 @@ func (s *Service) runDetector(ctx context.Context) {
 	checkInterval := s.cfg.Standby.CheckInterval
 
 	ticker := time.NewTicker(checkInterval)
+
 	for {
 		select {
 		case <-ticker.C:
@@ -112,26 +114,28 @@ func (s *Service) CheckForOutage(currentTime time.Time) {
 	outageThreshold := s.cfg.Standby.OutageThreshold
 	timeSinceLastCmd := currentTime.Sub(s.storageSvc.GetCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd, "current mode", s.getMode(), "currentTime", currentTime)
+
+	if s.InCommandMode() && (timeSinceLastCmd > outageThreshold) {
+		s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
+		s.setMode(StandbyMode)
+		return
+	}
+
 	if timeSinceLastCmd > outageThreshold {
 		if s.InStandbyMode() {
 			s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 			s.setMode(CommandMode)
-		} else {
-			s.logger.Debug("Ongoing outage", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 		}
+
 		currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
 		if err != nil {
 			s.publisher.PublishError("getting current command", err)
 			return
 		}
+
 		err = s.publisher.PublishCommand(currentInterval)
 		if err != nil {
 			s.publisher.PublishError("publishing current command", err)
-		}
-	} else {
-		if s.InCommandMode() {
-			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
-			s.setMode(StandbyMode)
 		}
 	}
 }
@@ -140,6 +144,7 @@ func (s *Service) Start(ctx context.Context) error {
 	if err := s.runMQTT(); err != nil {
 		return fmt.Errorf("starting MQTT client: %w", err)
 	}
+
 	go s.runDetector(ctx)
 	return nil
 }
@@ -151,6 +156,7 @@ func (s *Service) Stop() {
 func (s *Service) setMode(newMode ServiceMode) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	s.mode = newMode
 }
 

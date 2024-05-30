@@ -36,13 +36,19 @@ type ErrorPayload struct {
 	Timestamp time.Time `json:"timestamp"`
 }
 
-const errorCategory = "Standby"
+const errorCategoryStandby = "Standby"
+
+const (
+	MeterPowerUnitWatt     = 1
+	MeterPowerUnitKilowatt = 2
+	MeterPowerUnitMegawatt = 3
+)
 
 func (s *Service) PublishError(message string, receivedError error) {
 	s.logger.Error(message, "error", receivedError)
 
 	payload := ErrorPayload{
-		Category:  errorCategory,
+		Category:  errorCategoryStandby,
 		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
 		Timestamp: time.Now(),
 	}
@@ -82,11 +88,11 @@ func BuildCommandPayload(action string, optInterval plan.OptimisationInterval) C
 
 	var publishMeterValue float64
 	switch {
-	case meterUnit == 1:
+	case meterUnit == MeterPowerUnitWatt:
 		publishMeterValue = meterValue / 1000
-	case meterUnit == 2:
+	case meterUnit == MeterPowerUnitKilowatt:
 		publishMeterValue = meterValue
-	case meterUnit == 3:
+	case meterUnit == MeterPowerUnitMegawatt:
 		publishMeterValue = meterValue * 1000
 	}
 	return CommandPayload{

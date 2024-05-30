@@ -211,20 +211,17 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	defer cancel()
 	err := svc.Start(ctx)
 	assert.NoError(t, err)
-	time.Sleep(time.Second)
+	time.Sleep(1 * time.Second)
 
 	// First check after 1 second, remain in standby
-	svc.CheckForOutage(time.Now())
 	assert.True(t, svc.InStandbyMode())
 
 	// After 2 seconds, command timestamp exceeds threshold, switch to command mode
 	time.Sleep(time.Second)
-	svc.CheckForOutage(time.Now())
 	assert.True(t, svc.InCommandMode())
 
 	// After 3 seconds, command timestamp still exceeds threshold, remain in command mode
 	time.Sleep(time.Second)
-	svc.CheckForOutage(time.Now())
 	assert.True(t, svc.InCommandMode())
 
 	encPayload, _ := json.Marshal(map[string]interface{}{"action": "fromTest", "value": 23})
@@ -234,7 +231,6 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	time.Sleep(time.Second)
 
 	// After 4 seconds, new command received, resume standby mode
-	svc.CheckForOutage(time.Now())
 	assert.True(t, svc.InStandbyMode())
 
 	svc.Stop()

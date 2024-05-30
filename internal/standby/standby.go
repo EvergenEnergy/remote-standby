@@ -99,7 +99,7 @@ func (s *Service) runDetector(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			s.CheckForOutage(time.Now())
+			s.checkForOutage(time.Now())
 		case <-ctx.Done():
 			ticker.Stop()
 
@@ -110,33 +110,33 @@ func (s *Service) runDetector(ctx context.Context) {
 	}
 }
 
-func (s *Service) CheckForOutage(currentTime time.Time) {
+func (s *Service) checkForOutage(currentTime time.Time) {
 	outageThreshold := s.cfg.Standby.OutageThreshold
 	timeSinceLastCmd := currentTime.Sub(s.storageSvc.GetCommandTimestamp())
 	s.logger.Debug("checking", "time since last command", timeSinceLastCmd, "current mode", s.getMode(), "currentTime", currentTime)
 
-	if s.InCommandMode() && (timeSinceLastCmd > outageThreshold) {
-		s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
-		s.setMode(StandbyMode)
+	if timeSinceLastCmd < outageThreshold {
+		if s.InCommandMode() {
+			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
+			s.setMode(StandbyMode)
+		}
 		return
 	}
 
-	if timeSinceLastCmd > outageThreshold {
-		if s.InStandbyMode() {
-			s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
-			s.setMode(CommandMode)
-		}
+	if s.InStandbyMode() {
+		s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
+		s.setMode(CommandMode)
+	}
 
-		currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
-		if err != nil {
-			s.publisher.PublishError("getting current command", err)
-			return
-		}
+	currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
+	if err != nil {
+		s.publisher.PublishError("getting current command", err)
+		return
+	}
 
-		err = s.publisher.PublishCommand(currentInterval)
-		if err != nil {
-			s.publisher.PublishError("publishing current command", err)
-		}
+	err = s.publisher.PublishCommand(currentInterval)
+	if err != nil {
+		s.publisher.PublishError("publishing current command", err)
 	}
 }
 

@@ -31,3 +31,17 @@ func TestInterpolateVars(t *testing.T) {
 	assert.NotContains(t, cfg.MQTT.StandbyTopic, "${SERIAL_NUMBER}")
 	assert.EqualValues(t, cfg.MQTT.StandbyTopic, "cmd/test/standby/device/#")
 }
+
+func TestReadFromFile(t *testing.T) {
+	cfg := config.Config{
+		SiteName:          "test",
+		SerialNumber:      "device",
+		ConfigurationPath: "tests/integration/config.yaml",
+	}
+	fileCfg, err := cfg.NewFromFile()
+	assert.NotEmpty(t, fileCfg)
+	assert.NoError(t, err)
+
+	assert.Contains(t, fileCfg.MQTT.CommandAction, "SETPOINT")
+	assert.Contains(t, fileCfg.Standby.BackupFile, "plan.json")
+}

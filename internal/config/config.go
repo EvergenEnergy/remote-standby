@@ -52,8 +52,6 @@ func fromEnv() (Config, error) {
 }
 
 func FromFile() (Config, error) {
-	var cfg Config
-
 	// read config from env vars first
 	configEnv, err := fromEnv()
 	if err != nil {
@@ -62,9 +60,22 @@ func FromFile() (Config, error) {
 
 	// now read from both env and file, using the
 	// config path specified in the env var
-	loader := aconfig.LoaderFor(&cfg, aconfig.Config{
+	cfg, err := configEnv.NewFromFile()
+	if err != nil {
+		return Config{}, fmt.Errorf("unable to read config from env: %w", err)
+	}
+
+	cfg.InterpolateEnvVars()
+
+	return cfg, nil
+}
+
+func (cfg Config) NewFromFile() (Config, error) {
+	var fileCfg Config
+
+	loader := aconfig.LoaderFor(&fileCfg, aconfig.Config{
 		SkipFlags: true,
-		Files:     []string{configEnv.ConfigurationPath},
+		Files:     []string{cfg.ConfigurationPath},
 		FileDecoders: map[string]aconfig.FileDecoder{
 			".yaml": aconfigyaml.New(),
 		},
@@ -72,10 +83,7 @@ func FromFile() (Config, error) {
 	if err := loader.Load(); err != nil {
 		return Config{}, fmt.Errorf("unable to parse config: %w", err)
 	}
-
-	cfg.InterpolateEnvVars()
-
-	return cfg, nil
+	return fileCfg, nil
 }
 
 func (cfg *Config) InterpolateEnvVars() {

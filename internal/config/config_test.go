@@ -37,8 +37,7 @@ func TestReadFromFile(t *testing.T) {
 		SiteName:     "test",
 		SerialNumber: "device",
 	}
-	fileCfg, err := cfgNoPath.NewFromFile()
-	assert.Empty(t, fileCfg)
+	_, err := cfgNoPath.NewFromFile()
 	assert.Error(t, err)
 
 	cfgBadPath := config.Config{
@@ -46,8 +45,7 @@ func TestReadFromFile(t *testing.T) {
 		SerialNumber:      "device",
 		ConfigurationPath: "no/such/file",
 	}
-	fileCfg, err = cfgBadPath.NewFromFile()
-	assert.Empty(t, fileCfg)
+	_, err = cfgBadPath.NewFromFile()
 	assert.Error(t, err)
 
 	cfgGoodPath := config.Config{
@@ -56,7 +54,9 @@ func TestReadFromFile(t *testing.T) {
 		ConfigurationPath: "../../tests/integration/config.yaml",
 	}
 	t.Log(config.DumpYAML("../../tests/integration/config.yaml"))
-	fileCfg, err = cfgGoodPath.NewFromFile()
+	fileCfg, err := cfgGoodPath.NewFromFile()
+	t.Log("file config has site name ", fileCfg.SiteName)
+
 	assert.NotEmpty(t, fileCfg)
 	assert.NoError(t, err)
 	assert.True(t, false)

@@ -2,7 +2,6 @@ package config
 
 import (
 	"fmt"
-	"log/slog"
 	"os"
 	"strings"
 	"time"
@@ -64,7 +63,7 @@ func FromFile() (Config, error) {
 	// config path specified in the env var
 	cfg, err := configEnv.NewFromFile()
 	if err != nil {
-		return Config{}, fmt.Errorf("unable to read config from env: %w", err)
+		return Config{}, fmt.Errorf("unable to read config from file: %w", err)
 	}
 
 	cfg.InterpolateEnvVars()
@@ -79,14 +78,9 @@ func (cfg Config) NewFromFile() (Config, error) {
 		return Config{}, fmt.Errorf("no configuration path specified")
 	}
 
-	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
-
-	logger.Info("looking for config file", "path", cfg.ConfigurationPath)
 	if _, err := os.Stat(cfg.ConfigurationPath); os.IsNotExist(err) {
 		return Config{}, fmt.Errorf("file %s does not exist", cfg.ConfigurationPath)
 	}
-
-	logger.Info("path is ok")
 
 	loader := aconfig.LoaderFor(&fileCfg, aconfig.Config{
 		SkipFlags: true,

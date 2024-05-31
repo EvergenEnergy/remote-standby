@@ -24,11 +24,13 @@ func NewService(logger *slog.Logger) *Service {
 func (s *Service) SetCommandTimestamp(setTime time.Time) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	s.latestCommandReceived = setTime
 }
 
 func (s *Service) GetCommandTimestamp() time.Time {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	return s.latestCommandReceived
 }

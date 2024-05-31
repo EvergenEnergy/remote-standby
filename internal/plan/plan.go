@@ -73,7 +73,9 @@ func (p Handler) ReadPlan() (OptimisationPlan, error) {
 	if err != nil {
 		return OptimisationPlan{}, fmt.Errorf("reading plan from file: %w", err)
 	}
+
 	optPlan := OptimisationPlan{}
+
 	err = json.Unmarshal(content, &optPlan)
 	if err != nil {
 		fmt.Println(err)
@@ -110,6 +112,7 @@ func (p Handler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval,
 	if err != nil {
 		return OptimisationInterval{}, fmt.Errorf("reading current plan: %w", err)
 	}
+
 	for _, intv := range plan.OptimisationIntervals {
 		if intv.IsCurrent(targetTime) {
 			return intv, nil

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
+	"github.com/EvergenEnergy/remote-standby/internal/outagelog"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
@@ -31,9 +32,13 @@ type Service struct {
 	planHandler plan.Handler
 	mutex       *sync.Mutex
 	mode        ServiceMode
+	logHandler  *outagelog.Handler
 }
 
-func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service, publisher *publisher.Service, mqttClient mqtt.Client) *Service {
+func NewService(
+	logger *slog.Logger, cfg config.Config, storage *storage.Service,
+	publisher *publisher.Service, logHandler *outagelog.Handler, mqttClient mqtt.Client,
+) *Service {
 	return &Service{
 		logger:      logger,
 		cfg:         cfg,
@@ -43,6 +48,7 @@ func NewService(logger *slog.Logger, cfg config.Config, storage *storage.Service
 		mutex:       new(sync.Mutex),
 		mode:        StandbyMode,
 		planHandler: plan.NewHandler(logger, cfg.Standby.BackupFile),
+		logHandler:  logHandler,
 	}
 }
 
@@ -119,6 +125,7 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 		if s.InCommandMode() {
 			s.logger.Info("Commands resumed after outage", "time since last command", timeSinceLastCmd)
 			s.setMode(StandbyMode)
+			s.logHandler.Append("Resumed standby mode", map[string]string{"timeSinceLastCmd": timeSinceLastCmd.String()})
 		}
 		return
 	}
@@ -126,10 +133,13 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 	if s.InStandbyMode() {
 		s.logger.Info("Outage detected", "config threshold", outageThreshold, "time since last command", timeSinceLastCmd)
 		s.setMode(CommandMode)
+		s.logHandler.Append("Entered command mode", map[string]string{"timeSinceLastCmd": timeSinceLastCmd.String()})
 	}
 
 	currentInterval, err := s.planHandler.GetCurrentInterval(currentTime)
 	if err != nil {
+		s.logHandler.Append("No command available", nil)
+
 		s.publisher.PublishError("getting current command", err)
 		return
 	}
@@ -138,6 +148,8 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 	if err != nil {
 		s.publisher.PublishError("publishing current command", err)
 	}
+
+	s.logHandler.Append("Published command", currentInterval.LogFormat())
 }
 
 func (s *Service) Start(ctx context.Context) error {
@@ -146,11 +158,13 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 
 	go s.runDetector(ctx)
+	s.logHandler.Append("Service started", nil)
 	return nil
 }
 
 func (s *Service) Stop() {
 	s.stopMQTT()
+	s.logHandler.Append("Service stopped", nil)
 }
 
 func (s *Service) setMode(newMode ServiceMode) {

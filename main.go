@@ -10,6 +10,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	internalMQTT "github.com/EvergenEnergy/remote-standby/internal/mqtt"
+	"github.com/EvergenEnergy/remote-standby/internal/outagelog"
 	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
@@ -36,10 +37,15 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfgLevel}))
 
+	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, logger)
+	if err != nil {
+		logger.Error("Could not open logfile", "path", cfg.Standby.OutageLogFile)
+	}
+
 	mqttClient := internalMQTT.NewClient(cfg)
 	storageService := storage.NewService(logger)
 	publisher := publisher.NewService(logger, cfg, mqttClient)
-	standbyService := standby.NewService(logger, cfg, storageService, publisher, mqttClient)
+	standbyService := standby.NewService(logger, cfg, storageService, publisher, logHandler, mqttClient)
 	standbyWorker := worker.NewWorker(logger, cfg, standbyService)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, os.Interrupt)
@@ -55,4 +61,6 @@ func main() {
 	<-ctx.Done()
 
 	_ = standbyWorker.Stop()
+
+	logHandler.Close()
 }

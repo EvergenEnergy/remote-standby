@@ -9,3 +9,4 @@ mqtt:
   command_action: "STORAGE_POINT"
 standby:
   backup_file: "/command-standby/backup/plan.json"
+  outage_log_file: "/command-standby/outage.log"

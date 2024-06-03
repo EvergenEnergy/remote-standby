@@ -12,6 +12,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/config"
 	"github.com/EvergenEnergy/remote-standby/internal/mqtt"
+	"github.com/EvergenEnergy/remote-standby/internal/outagelog"
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/EvergenEnergy/remote-standby/internal/publisher"
 	"github.com/EvergenEnergy/remote-standby/internal/standby"
@@ -39,6 +40,7 @@ func getTestConfig() config.Config {
 			CheckInterval:   time.Duration(1 * time.Second),
 			OutageThreshold: time.Duration(2 * time.Second),
 			BackupFile:      "/tmp/backup-plan.json",
+			OutageLogFile:   "/tmp/outage.log",
 		},
 	}
 }
@@ -51,11 +53,15 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
-	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
+	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
+	assert.NoError(t, err)
+	defer logHandler.Close()
+	defer logHandler.Cleanup()
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	err := svc.Start(ctx)
+	err = svc.Start(ctx)
 	assert.NoError(t, err)
 
 	timestampBeforeCommand := storageSvc.GetCommandTimestamp()
@@ -93,11 +99,15 @@ func TestPublishesError_Integration(t *testing.T) {
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
-	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
+	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
+	assert.NoError(t, err)
+	defer logHandler.Close()
+	defer logHandler.Cleanup()
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	err := svc.Start(ctx)
+	err = svc.Start(ctx)
 	assert.NoError(t, err)
 
 	errTopic := fmt.Sprintf("%s/%s", cfg.MQTT.ErrorTopic, "Standby")
@@ -158,11 +168,15 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
-	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, mqttClient)
+	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
+	assert.NoError(t, err)
+	defer logHandler.Close()
+	defer logHandler.Cleanup()
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	err := svc.Start(ctx)
+	err = svc.Start(ctx)
 	assert.NoError(t, err)
 
 	mqttClient.Subscribe(cfg.MQTT.WriteCommandTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
@@ -205,11 +219,15 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
 	publisher := publisher.NewService(testLogger, cfg, mqttClient)
-	svc := standby.NewService(testLogger, cfg, storageSvc, publisher, mqttClient)
+	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
+	assert.NoError(t, err)
+	defer logHandler.Close()
+	defer logHandler.Cleanup()
+	svc := standby.NewService(testLogger, cfg, storageSvc, publisher, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
-	err := svc.Start(ctx)
+	err = svc.Start(ctx)
 	assert.NoError(t, err)
 
 	// First check after 1 second, remain in standby

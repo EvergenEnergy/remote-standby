@@ -80,7 +80,7 @@ func readLogFile(t *testing.T, logPath string) []string {
 	return lines
 }
 
-func TestWriteOutageLogDuringOutage_Integration(t *testing.T) {
+func TestWriteLogDuringOutage_Integration(t *testing.T) {
 	if testing.Short() {
 		t.Skip("Skipping integration test in short mode.")
 	}
@@ -98,7 +98,7 @@ func TestWriteOutageLogDuringOutage_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 	svc.Stop()
 
 	logLines := readLogFile(t, logPath)

@@ -64,7 +64,7 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 func (i OptimisationInterval) LogFormat() map[string]string {
 	return map[string]string{
 		"intervalStart": fmt.Sprintf("%d", i.Interval.StartTime.Seconds),
-		"meterPower":    fmt.Sprintf("%f", i.MeterPower.Value),
+		"meterPower":    fmt.Sprintf("%.0f", i.MeterPower.Value),
 	}
 }
 

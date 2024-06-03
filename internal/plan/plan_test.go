@@ -148,3 +148,16 @@ func TestGetCurrentInterval_WhenIntervalNotPresent(t *testing.T) {
 		os.Remove(planPath)
 	}
 }
+
+func TestIntervalLogFormat(t *testing.T) {
+	testPlan := GetOptimisationPlan()
+	logFormat := testPlan.OptimisationIntervals[0].LogFormat()
+	assert.EqualValues(t, logFormat["intervalStart"], "1715319000")
+	assert.EqualValues(t, logFormat["meterPower"], "400")
+}
+
+func TestPlanIsEmpty(t *testing.T) {
+	testPlan := GetOptimisationPlan()
+	assert.False(t, testPlan.IsEmpty())
+	assert.True(t, plan.OptimisationPlan{}.IsEmpty())
+}

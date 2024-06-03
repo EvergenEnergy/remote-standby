@@ -83,18 +83,15 @@ func TestWritesAndReadsAPlan(t *testing.T) {
 	os.Remove(planPath)
 }
 
-func TestGetCurrentInterval(t *testing.T) {
+func TestGetCurrentInterval_WhenIntervalPresent(t *testing.T) {
 	type test struct {
 		startTime          int
-		hasInterval        bool
 		expectedMeterPower int
 	}
 
 	tests := []test{
-		{startTime: 1715318999, hasInterval: false, expectedMeterPower: 0},
-		{startTime: 1715319299, hasInterval: true, expectedMeterPower: 400},
-		{startTime: 1715319300, hasInterval: true, expectedMeterPower: 390},
-		{startTime: 1715319901, hasInterval: false, expectedMeterPower: 0},
+		{startTime: 1715319299, expectedMeterPower: 400},
+		{startTime: 1715319300, expectedMeterPower: 390},
 	}
 
 	for i, tc := range tests {
@@ -111,12 +108,41 @@ func TestGetCurrentInterval(t *testing.T) {
 		startTime := time.Unix(int64(tc.startTime), 0)
 
 		optInterval, err := handler.GetCurrentInterval(startTime)
-		assert.NotEqual(t, tc.hasInterval, optInterval.IsEmpty())
-		if tc.hasInterval {
-			assert.NoError(t, err)
-		} else {
-			assert.Error(t, err)
-		}
+		assert.False(t, optInterval.IsEmpty())
+		assert.NoError(t, err)
+		assert.EqualValues(t, optInterval.MeterPower.Value, tc.expectedMeterPower)
+
+		os.Remove(planPath)
+	}
+}
+
+func TestGetCurrentInterval_WhenIntervalNotPresent(t *testing.T) {
+	type test struct {
+		startTime          int
+		expectedMeterPower int
+	}
+
+	tests := []test{
+		{startTime: 1715318999, expectedMeterPower: 0},
+		{startTime: 1715319901, expectedMeterPower: 0},
+	}
+
+	for i, tc := range tests {
+
+		planPath := fmt.Sprintf("/tmp/interval-plan-%d-%d.json", i, time.Now().Unix())
+
+		handler := plan.NewHandler(testLogger, planPath)
+
+		origPlan := GetOptimisationPlan()
+
+		err := handler.WritePlan(origPlan)
+		assert.NoError(t, err)
+
+		startTime := time.Unix(int64(tc.startTime), 0)
+
+		optInterval, err := handler.GetCurrentInterval(startTime)
+		assert.True(t, optInterval.IsEmpty())
+		assert.Error(t, err)
 		assert.EqualValues(t, optInterval.MeterPower.Value, tc.expectedMeterPower)
 
 		os.Remove(planPath)

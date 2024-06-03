@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -12,10 +13,10 @@ import (
 // Config holds all configurable values of the service.
 // It can contain values specified either in the environment or by file.
 // File-based values are loaded in a two-step process, after env vars,
-// so they cannot be configured with required:true
+// so they cannot be configured with required:true.
 type Config struct {
-	SiteName          string        `env:"SITE_NAME" required:"true"`
-	SerialNumber      string        `env:"SERIAL_NUMBER" required:"true"`
+	SiteName          string        `env:"SITE_NAME"`
+	SerialNumber      string        `env:"SERIAL_NUMBER"`
 	ConfigurationPath string        `env:"CONFIGURATION_PATH" default:"config.yaml"`
 	Logging           LoggingConfig `yaml:"logging"`
 	MQTT              MQTTConfig    `yaml:"mqtt"`
@@ -52,8 +53,6 @@ func fromEnv() (Config, error) {
 }
 
 func FromFile() (Config, error) {
-	var cfg Config
-
 	// read config from env vars first
 	configEnv, err := fromEnv()
 	if err != nil {
@@ -62,9 +61,30 @@ func FromFile() (Config, error) {
 
 	// now read from both env and file, using the
 	// config path specified in the env var
-	loader := aconfig.LoaderFor(&cfg, aconfig.Config{
+	cfg, err := configEnv.NewFromFile()
+	if err != nil {
+		return Config{}, fmt.Errorf("unable to read config from file: %w", err)
+	}
+
+	cfg.InterpolateEnvVars()
+
+	return cfg, nil
+}
+
+func (cfg Config) NewFromFile() (Config, error) {
+	var fileCfg Config
+
+	if cfg.ConfigurationPath == "" {
+		return Config{}, fmt.Errorf("no configuration path specified")
+	}
+
+	if _, err := os.Stat(cfg.ConfigurationPath); os.IsNotExist(err) {
+		return Config{}, fmt.Errorf("file %s does not exist", cfg.ConfigurationPath)
+	}
+
+	loader := aconfig.LoaderFor(&fileCfg, aconfig.Config{
 		SkipFlags: true,
-		Files:     []string{configEnv.ConfigurationPath},
+		Files:     []string{cfg.ConfigurationPath},
 		FileDecoders: map[string]aconfig.FileDecoder{
 			".yaml": aconfigyaml.New(),
 		},
@@ -73,9 +93,7 @@ func FromFile() (Config, error) {
 		return Config{}, fmt.Errorf("unable to parse config: %w", err)
 	}
 
-	cfg.InterpolateEnvVars()
-
-	return cfg, nil
+	return fileCfg, nil
 }
 
 func (cfg *Config) InterpolateEnvVars() {

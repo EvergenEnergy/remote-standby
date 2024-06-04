@@ -147,6 +147,8 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 	err = s.publisher.PublishCommand(currentInterval)
 	if err != nil {
 		s.publisher.PublishError("publishing current command", err)
+		s.logHandler.Append("Error publishing command", map[string]string{"error": err.Error()})
+		return
 	}
 
 	s.logHandler.Append("Published command", currentInterval.LogFormat())

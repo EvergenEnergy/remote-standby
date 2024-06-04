@@ -63,6 +63,7 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
+	defer svc.Stop()
 
 	timestampBeforeCommand := storageSvc.GetCommandTimestamp()
 
@@ -109,6 +110,7 @@ func TestPublishesError_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
+	defer svc.Stop()
 
 	errTopic := fmt.Sprintf("%s/%s", cfg.MQTT.ErrorTopic, "Standby")
 	mqttClient.Subscribe(errTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
@@ -178,6 +180,7 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
+	defer svc.Stop()
 
 	mqttClient.Subscribe(cfg.MQTT.WriteCommandTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
 		setMsg(msg)
@@ -229,6 +232,7 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
+	defer svc.Stop()
 
 	// First check after 1 second, remain in standby
 	time.Sleep(1 * time.Second)

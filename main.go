@@ -41,6 +41,7 @@ func main() {
 	if err != nil {
 		logger.Error("Could not open logfile", "path", cfg.Standby.OutageLogFile)
 	}
+	defer logHandler.Close()
 
 	mqttClient := internalMQTT.NewClient(cfg)
 	storageService := storage.NewService(logger)
@@ -61,6 +62,4 @@ func main() {
 	<-ctx.Done()
 
 	_ = standbyWorker.Stop()
-
-	logHandler.Close()
 }

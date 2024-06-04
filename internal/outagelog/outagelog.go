@@ -40,7 +40,3 @@ func (h *Handler) Close() {
 		h.logger.Error("closing outage log", "error", err)
 	}
 }
-
-func (h *Handler) Cleanup() {
-	os.Remove(h.filePath)
-}

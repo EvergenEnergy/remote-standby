@@ -56,7 +56,7 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
 	assert.NoError(t, err)
 	defer logHandler.Close()
-	defer logHandler.Cleanup()
+	defer os.Remove(cfg.Standby.OutageLogFile)
 	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -102,7 +102,7 @@ func TestPublishesError_Integration(t *testing.T) {
 	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
 	assert.NoError(t, err)
 	defer logHandler.Close()
-	defer logHandler.Cleanup()
+	defer os.Remove(cfg.Standby.OutageLogFile)
 	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -171,7 +171,7 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
 	assert.NoError(t, err)
 	defer logHandler.Close()
-	defer logHandler.Cleanup()
+	defer os.Remove(cfg.Standby.OutageLogFile)
 	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
@@ -222,7 +222,7 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
 	assert.NoError(t, err)
 	defer logHandler.Close()
-	defer logHandler.Cleanup()
+	defer os.Remove(cfg.Standby.OutageLogFile)
 	svc := standby.NewService(testLogger, cfg, storageSvc, publisher, logHandler, mqttClient)
 
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)

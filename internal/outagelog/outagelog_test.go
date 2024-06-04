@@ -46,6 +46,7 @@ func getTestConfig() config.Config {
 func TestWriteOutageLog(t *testing.T) {
 	cfg := getTestConfig()
 	logPath := cfg.Standby.OutageLogFile
+	defer os.Remove(logPath)
 
 	logHandler, err := outagelog.NewHandler(logPath, testLogger)
 	require.NoError(t, err)
@@ -60,14 +61,10 @@ func TestWriteOutageLog(t *testing.T) {
 	assert.Contains(t, logLines[0], "test message")
 	assert.Contains(t, logLines[1], "foo=baa")
 	assert.Contains(t, logLines[1], "num=23")
-
-	logHandler.Cleanup()
-	require.NoFileExists(t, logPath)
 }
 
 func readLogFile(t *testing.T, logPath string) []string {
 	content, err := os.Open(logPath)
-	t.Log("reading outage data from " + logPath)
 	require.NoError(t, err)
 
 	scanner := bufio.NewScanner(content)
@@ -86,6 +83,7 @@ func TestWriteLogDuringOutage_Integration(t *testing.T) {
 	}
 	cfg := getTestConfig()
 	logPath := cfg.Standby.OutageLogFile
+	defer os.Remove(logPath)
 
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
@@ -108,7 +106,4 @@ func TestWriteLogDuringOutage_Integration(t *testing.T) {
 	assert.Contains(t, logLines[2], "No command available")
 
 	assert.NotEmpty(t, logLines)
-
-	logHandler.Cleanup()
-	require.NoFileExists(t, logPath)
 }

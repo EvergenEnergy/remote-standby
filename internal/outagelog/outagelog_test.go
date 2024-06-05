@@ -99,7 +99,8 @@ func TestWriteLogDuringOutage_Integration(t *testing.T) {
 	defer cancel()
 	err = svc.Start(ctx)
 	assert.NoError(t, err)
-	time.Sleep(4 * time.Second)
+	// sleep for long enough for an outage to be triggered (including some buffer)
+	time.Sleep(cfg.Standby.CheckInterval + cfg.Standby.OutageThreshold + 1*time.Second)
 	svc.Stop()
 
 	logLines := readLogFile(t, logPath)

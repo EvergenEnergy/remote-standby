@@ -48,8 +48,9 @@ func TestWriteOutageLog(t *testing.T) {
 	logPath := cfg.Standby.OutageLogFile
 	defer os.Remove(logPath)
 
-	logHandler, err := outagelog.NewHandler(logPath, testLogger)
+	logHandle, err := outagelog.Open(logPath)
 	require.NoError(t, err)
+	logHandler := outagelog.NewHandler(logHandle, testLogger)
 
 	logHandler.Append("test message", nil)
 	logHandler.Append("test message with details", map[string]string{"foo": "baa", "num": "23"})
@@ -88,7 +89,9 @@ func TestWriteLogDuringOutage_Integration(t *testing.T) {
 	mqttClient := mqtt.NewClient(cfg)
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
-	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, testLogger)
+	logHandle, err := outagelog.Open(logPath)
+	require.NoError(t, err)
+	logHandler := outagelog.NewHandler(logHandle, testLogger)
 	assert.NoError(t, err)
 	svc := standby.NewService(testLogger, cfg, storageSvc, publisherSvc, logHandler, mqttClient)
 

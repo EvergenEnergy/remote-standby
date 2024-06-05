@@ -37,10 +37,12 @@ func main() {
 
 	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: cfgLevel}))
 
-	logHandler, err := outagelog.NewHandler(cfg.Standby.OutageLogFile, logger)
+	logHandle, err := outagelog.Open(cfg.Standby.OutageLogFile)
 	if err != nil {
 		logger.Error("Could not open logfile", "path", cfg.Standby.OutageLogFile)
 	}
+
+	logHandler := outagelog.NewHandler(logHandle, logger)
 	defer logHandler.Close()
 
 	mqttClient := internalMQTT.NewClient(cfg)

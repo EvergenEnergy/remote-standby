@@ -22,5 +22,6 @@ services:
     volumes:
       - ./tests/integration/config.yaml:/config/config.yaml
       - /tmp/backup:/command-standby/backup
+      - /tmp/outage:/command-standby/logs
     links: [mosquitto]
     depends_on: [mosquitto]

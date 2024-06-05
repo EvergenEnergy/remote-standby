@@ -11,7 +11,6 @@ import (
 type Handler struct {
 	logger     *slog.Logger
 	fileHandle *os.File
-	// filePath   string
 }
 
 func NewHandler(fileHandle *os.File, logger *slog.Logger) *Handler {

@@ -61,6 +61,13 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 	return isAfterStart && isBeforeEnd
 }
 
+func (i OptimisationInterval) LogFormat() map[string]string {
+	return map[string]string{
+		"intervalStart": fmt.Sprintf("%d", i.Interval.StartTime.Seconds),
+		"meterPower":    fmt.Sprintf("%.0f", i.MeterPower.Value),
+	}
+}
+
 func NewHandler(logger *slog.Logger, path string) Handler {
 	return Handler{logger: logger, mu: new(sync.RWMutex), path: path}
 }

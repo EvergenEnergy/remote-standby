@@ -13,7 +13,6 @@ func getTestConfig() config.Config {
 		SiteName:     "test",
 		SerialNumber: "device",
 		MQTT: config.MQTTConfig{
-			BrokerURL:    "tcp://localhost:1833",
 			StandbyTopic: "cmd/${SITE_NAME}/standby/${SERIAL_NUMBER}/#",
 		},
 	}

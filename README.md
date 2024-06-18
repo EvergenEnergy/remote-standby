@@ -2,6 +2,8 @@
 
 This service operates as a backup controller for [remote-commands-handler](github.com/EvergenEnergy/remote-commands-handler). If it detects a lack of commands arriving for the handler to process, it will step in and issue commands in order to maintain a basic level of control.
 
+[![Coverage Status](https://coveralls.io/repos/github/EvergenEnergy/remote-standby/badge.svg?branch=main)](https://coveralls.io/github/EvergenEnergy/remote-standby?branch=main)
+
 ## Getting Started
 
 All dependencies can be run using docker compose. To run locally, create your own `.env` file.

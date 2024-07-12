@@ -74,7 +74,7 @@ func (s *Service) PublishCommand(optInterval plan.OptimisationInterval) error {
 		return fmt.Errorf("no command topic (%s) or action (%s) configured", s.cfg.MQTT.WriteCommandTopic, s.cfg.MQTT.CommandAction)
 	}
 
-	payload := BuildCommandPayload(s.cfg.MQTT.CommandAction, optInterval)
+	payload := []CommandPayload{BuildCommandPayload(s.cfg.MQTT.CommandAction, optInterval)}
 
 	encPayload, err := json.Marshal(payload)
 	if err != nil {

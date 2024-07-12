@@ -208,9 +208,13 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	subscribedMsg := getMsg()
 	assert.NotEmpty(t, subscribedMsg)
 
-	msg := publisher.CommandPayload{}
-	err = json.Unmarshal(subscribedMsg.Payload(), &msg)
+	msgList := []publisher.CommandPayload{}
+	err = json.Unmarshal(subscribedMsg.Payload(), &msgList)
 	assert.NoError(t, err)
+
+	assert.Equal(t, 1, len(msgList))
+
+	msg := msgList[0]
 
 	assert.EqualValues(t, cfg.MQTT.CommandAction, msg.Action)
 	assert.EqualValues(t, optPlan.OptimisationIntervals[0].MeterPower.Value, msg.Value)

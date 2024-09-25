@@ -31,9 +31,9 @@ type CommandPayload struct {
 }
 
 type ErrorPayload struct {
-	Category  string    `json:"category"`
-	Message   string    `json:"message"`
-	Timestamp time.Time `json:"timestamp"`
+	Category  string `json:"category"`
+	Message   string `json:"message"`
+	Timestamp int64  `json:"timestamp"`
 }
 
 const errorCategoryStandby = "Standby"
@@ -50,7 +50,7 @@ func (s *Service) PublishError(message string, receivedError error) {
 	payload := ErrorPayload{
 		Category:  errorCategoryStandby,
 		Message:   fmt.Sprintf("Error %s: %s", message, receivedError),
-		Timestamp: time.Now(),
+		Timestamp: time.Now().Unix(),
 	}
 
 	encPayload, err := json.Marshal(payload)

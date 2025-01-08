@@ -3,15 +3,16 @@ module github.com/EvergenEnergy/remote-standby
 go 1.23.1
 
 require (
-	github.com/cristalhq/aconfig v0.18.5
+	github.com/cristalhq/aconfig v0.18.6
 	github.com/cristalhq/aconfig/aconfigyaml v0.17.1
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 )
 
 require (
 	github.com/gorilla/websocket v1.5.3 // indirect
-	golang.org/x/net v0.29.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
+	github.com/mitchellh/mapstructure v1.5.0 // indirect
+	golang.org/x/net v0.34.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
 )
 
 require (

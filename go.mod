@@ -3,7 +3,7 @@ module github.com/EvergenEnergy/remote-standby
 go 1.23.1
 
 require (
-	github.com/cristalhq/aconfig v0.18.6
+	github.com/cristalhq/aconfig v0.18.7
 	github.com/cristalhq/aconfig/aconfigyaml v0.17.1
 	github.com/eclipse/paho.mqtt.golang v1.5.0
 )

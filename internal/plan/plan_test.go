@@ -9,6 +9,7 @@ import (
 
 	"github.com/EvergenEnergy/remote-standby/internal/plan"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var testLogger = slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelDebug}))
@@ -73,13 +74,13 @@ func TestWritesAndReadsAPlan(t *testing.T) {
 	handler := plan.NewHandler(testLogger, planPath)
 
 	err := handler.WritePlan(GetOptimisationPlan())
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
 	plan2, err := handler.ReadPlan()
-	assert.NoError(t, err)
-	assert.Equal(t, plan2.SiteID, "test-site")
-	assert.Equal(t, plan2.OptimisationIntervals[0].BatteryPower.Value, float32(100))
-	assert.Equal(t, plan2.OptimisationIntervals[0].StateOfCharge, float32(0.55))
+	require.NoError(t, err)
+	assert.Equal(t, "test-site", plan2.SiteID)
+	assert.InDelta(t, float32(100), plan2.OptimisationIntervals[0].BatteryPower.Value, 0.001)
+	assert.InDelta(t, float32(0.55), plan2.OptimisationIntervals[0].StateOfCharge, 0.0001)
 	os.Remove(planPath)
 }
 
@@ -103,14 +104,14 @@ func TestGetCurrentInterval_WhenIntervalPresent(t *testing.T) {
 		origPlan := GetOptimisationPlan()
 
 		err := handler.WritePlan(origPlan)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		startTime := time.Unix(int64(tc.startTime), 0)
 
 		optInterval, err := handler.GetCurrentInterval(startTime)
 		assert.False(t, optInterval.IsEmpty())
-		assert.NoError(t, err)
-		assert.EqualValues(t, optInterval.MeterPower.Value, tc.expectedMeterPower)
+		require.NoError(t, err)
+		assert.InDelta(t, float64(tc.expectedMeterPower), float64(optInterval.MeterPower.Value), 0.001)
 
 		os.Remove(planPath)
 	}
@@ -136,14 +137,14 @@ func TestGetCurrentInterval_WhenIntervalNotPresent(t *testing.T) {
 		origPlan := GetOptimisationPlan()
 
 		err := handler.WritePlan(origPlan)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 
 		startTime := time.Unix(int64(tc.startTime), 0)
 
 		optInterval, err := handler.GetCurrentInterval(startTime)
 		assert.True(t, optInterval.IsEmpty())
-		assert.Error(t, err)
-		assert.EqualValues(t, optInterval.MeterPower.Value, tc.expectedMeterPower)
+		require.Error(t, err)
+		assert.InDelta(t, float64(tc.expectedMeterPower), float64(optInterval.MeterPower.Value), 0.001)
 
 		os.Remove(planPath)
 	}
@@ -152,8 +153,8 @@ func TestGetCurrentInterval_WhenIntervalNotPresent(t *testing.T) {
 func TestIntervalLogFormat(t *testing.T) {
 	testPlan := GetOptimisationPlan()
 	logFormat := testPlan.OptimisationIntervals[0].LogFormat()
-	assert.EqualValues(t, logFormat["intervalStart"], "1715319000")
-	assert.EqualValues(t, logFormat["meterPower"], "400")
+	assert.Equal(t, "1715319000", logFormat["intervalStart"])
+	assert.Equal(t, "400", logFormat["meterPower"])
 }
 
 func TestPlanIsEmpty(t *testing.T) {

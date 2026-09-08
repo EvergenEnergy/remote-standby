@@ -28,6 +28,7 @@ func (w *Worker) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("running standby service: %w", err)
 	}
+
 	return nil
 }
 

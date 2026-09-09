@@ -18,7 +18,7 @@ func NewHandler(fileHandle *os.File, logger *slog.Logger) *Handler {
 }
 
 func (h *Handler) Append(message string, details map[string]string) {
-	errDetails := []string{}
+	errDetails := make([]string, 0, len(details))
 	for k, v := range details {
 		errDetails = append(errDetails, fmt.Sprintf("%s=%s", k, v))
 	}
@@ -41,5 +41,6 @@ func Open(filePath string) (*os.File, error) {
 	if err != nil {
 		return nil, fmt.Errorf("creating outage log file handle for path %s: %w", filePath, err)
 	}
+
 	return fileHandle, nil
 }

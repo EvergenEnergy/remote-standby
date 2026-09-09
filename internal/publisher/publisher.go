@@ -82,6 +82,7 @@ func (s *Service) PublishCommand(optInterval plan.OptimisationInterval) error {
 	}
 
 	s.mqttClient.Publish(s.cfg.MQTT.WriteCommandTopic, 1, false, encPayload)
+
 	return nil
 }
 
@@ -91,12 +92,12 @@ func BuildCommandPayload(action string, optInterval plan.OptimisationInterval) C
 
 	var publishMeterValue float64
 
-	switch {
-	case meterUnit == MeterPowerUnitWatt:
+	switch meterUnit {
+	case MeterPowerUnitWatt:
 		publishMeterValue = meterValue / 1000
-	case meterUnit == MeterPowerUnitKilowatt:
+	case MeterPowerUnitKilowatt:
 		publishMeterValue = meterValue
-	case meterUnit == MeterPowerUnitMegawatt:
+	case MeterPowerUnitMegawatt:
 		publishMeterValue = meterValue * 1000
 	}
 

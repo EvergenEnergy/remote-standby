@@ -28,7 +28,7 @@ func TestInterpolateVars(t *testing.T) {
 	cfg.InterpolateEnvVars()
 	assert.NotContains(t, cfg.MQTT.StandbyTopic, "${SITE_NAME}")
 	assert.NotContains(t, cfg.MQTT.StandbyTopic, "${SERIAL_NUMBER}")
-	assert.EqualValues(t, cfg.MQTT.StandbyTopic, "cmd/test/standby/device/#")
+	assert.Equal(t, "cmd/test/standby/device/#", cfg.MQTT.StandbyTopic)
 }
 
 func TestReadFromFile_WhenConfigFilePathExists_ReadsConfig(t *testing.T) {
@@ -45,8 +45,8 @@ func TestReadFromFile_WhenConfigFilePathExists_ReadsConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotEmpty(t, got)
-	assert.Equal(t, got.MQTT.CommandAction, "STORAGE_POINT")
-	assert.Equal(t, got.Standby.BackupFile, "/command-standby/backup/plan.json")
+	assert.Equal(t, "STORAGE_POINT", got.MQTT.CommandAction)
+	assert.Equal(t, "/command-standby/backup/plan.json", got.Standby.BackupFile)
 }
 
 func TestReadFromFile_WhenConfigFilePathIsNonexistent_ReturnsError(t *testing.T) {

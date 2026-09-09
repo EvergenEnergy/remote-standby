@@ -72,6 +72,7 @@ func (s *Service) handlePlanMessage(_ mqtt.Client, msg mqtt.Message) {
 	if err == nil && optPlan.IsEmpty() {
 		err = fmt.Errorf("optimisation plan is empty")
 	}
+
 	if err != nil {
 		s.publisher.PublishError("reading optimisation plan", err)
 	}
@@ -127,6 +128,7 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 			s.setMode(StandbyMode)
 			s.logHandler.Append("Resumed standby mode", map[string]string{"timeSinceLastCmd": timeSinceLastCmd.String()})
 		}
+
 		return
 	}
 
@@ -141,6 +143,7 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 		s.logHandler.Append("No command available", nil)
 
 		s.publisher.PublishError("getting current command", err)
+
 		return
 	}
 
@@ -148,6 +151,7 @@ func (s *Service) checkForOutage(currentTime time.Time) {
 	if err != nil {
 		s.publisher.PublishError("publishing current command", err)
 		s.logHandler.Append("Error publishing command", map[string]string{"error": err.Error()})
+
 		return
 	}
 
@@ -160,7 +164,9 @@ func (s *Service) Start(ctx context.Context) error {
 	}
 
 	go s.runDetector(ctx)
+
 	s.logHandler.Append("Service started", nil)
+
 	return nil
 }
 
@@ -179,6 +185,7 @@ func (s *Service) setMode(newMode ServiceMode) {
 func (s *Service) getMode() ServiceMode {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+
 	return s.mode
 }
 

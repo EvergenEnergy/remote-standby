@@ -58,6 +58,7 @@ func (i OptimisationInterval) IsCurrent(targetTime time.Time) bool {
 
 	isAfterStart := targetTime.Equal(intStart) || targetTime.After(intStart)
 	isBeforeEnd := targetTime.Before(intEnd)
+
 	return isAfterStart && isBeforeEnd
 }
 
@@ -88,6 +89,7 @@ func (p Handler) ReadPlan() (OptimisationPlan, error) {
 		fmt.Println(err)
 		return OptimisationPlan{}, fmt.Errorf("unmarshalling plan: %w", err)
 	}
+
 	return optPlan, nil
 }
 
@@ -125,5 +127,6 @@ func (p Handler) GetCurrentInterval(targetTime time.Time) (OptimisationInterval,
 			return intv, nil
 		}
 	}
+
 	return OptimisationInterval{}, fmt.Errorf("no current interval found in plan")
 }

@@ -19,6 +19,7 @@ import (
 	"github.com/EvergenEnergy/remote-standby/internal/storage"
 	pahoMQTT "github.com/eclipse/paho.mqtt.golang"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -54,7 +55,7 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
 	logHandle, err := outagelog.Open(cfg.Standby.OutageLogFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	logHandler := outagelog.NewHandler(logHandle, testLogger)
 	defer logHandler.Close()
 	defer os.Remove(cfg.Standby.OutageLogFile)
@@ -63,7 +64,7 @@ func TestUpdatesTimestamp_Integration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	err = svc.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer svc.Stop()
 
 	timestampBeforeCommand := storageSvc.GetCommandTimestamp()
@@ -102,7 +103,7 @@ func TestPublishesError_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
 	logHandle, err := outagelog.Open(cfg.Standby.OutageLogFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	logHandler := outagelog.NewHandler(logHandle, testLogger)
 	defer logHandler.Close()
 	defer os.Remove(cfg.Standby.OutageLogFile)
@@ -111,7 +112,7 @@ func TestPublishesError_Integration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	err = svc.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer svc.Stop()
 
 	errTopic := fmt.Sprintf("%s/%s", cfg.MQTT.ErrorTopic, "Standby")
@@ -173,7 +174,7 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	publisherSvc := publisher.NewService(testLogger, cfg, mqttClient)
 	logHandle, err := outagelog.Open(cfg.Standby.OutageLogFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	logHandler := outagelog.NewHandler(logHandle, testLogger)
 	defer logHandler.Close()
 	defer os.Remove(cfg.Standby.OutageLogFile)
@@ -182,7 +183,7 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	err = svc.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer svc.Stop()
 
 	mqttClient.Subscribe(cfg.MQTT.WriteCommandTopic, 1, func(client pahoMQTT.Client, msg pahoMQTT.Message) {
@@ -210,14 +211,14 @@ func TestStoresAndReplaysAPlan_Integration(t *testing.T) {
 
 	msgList := []publisher.CommandPayload{}
 	err = json.Unmarshal(subscribedMsg.Payload(), &msgList)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 
-	assert.Equal(t, 1, len(msgList))
+	assert.Len(t, msgList, 1)
 
 	msg := msgList[0]
 
-	assert.EqualValues(t, cfg.MQTT.CommandAction, msg.Action)
-	assert.EqualValues(t, optPlan.OptimisationIntervals[0].MeterPower.Value, msg.Value)
+	assert.Equal(t, cfg.MQTT.CommandAction, msg.Action)
+	assert.InDelta(t, float64(optPlan.OptimisationIntervals[0].MeterPower.Value), msg.Value, 0.001)
 }
 
 func TestDetectsOutage_Integration(t *testing.T) {
@@ -230,7 +231,7 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	storageSvc := storage.NewService(testLogger)
 	publisher := publisher.NewService(testLogger, cfg, mqttClient)
 	logHandle, err := outagelog.Open(cfg.Standby.OutageLogFile)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	logHandler := outagelog.NewHandler(logHandle, testLogger)
 	defer logHandler.Close()
 	defer os.Remove(cfg.Standby.OutageLogFile)
@@ -239,7 +240,7 @@ func TestDetectsOutage_Integration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), defaultTimeout)
 	defer cancel()
 	err = svc.Start(ctx)
-	assert.NoError(t, err)
+	require.NoError(t, err)
 	defer svc.Stop()
 
 	// First check after 1 second, remain in standby
